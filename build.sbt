@@ -1,8 +1,8 @@
 ThisBuild / organization := "com.dwolla"
 ThisBuild / homepage := Option(url("https://github.com/Dwolla/natchez-smithy4s"))
 ThisBuild / tlBaseVersion := "0.1"
-ThisBuild / crossScalaVersions := Seq("2.12.19", "2.13.14", "3.3.3")
-ThisBuild / githubWorkflowScalaVersions := Seq("2.12", "2.13", "3")
+ThisBuild / crossScalaVersions := Seq("2.13.14", "3.3.3")
+ThisBuild / githubWorkflowScalaVersions := Seq("2.13", "3")
 ThisBuild / tlJdkRelease := Option(8)
 ThisBuild / tlFatalWarnings := githubIsWorkflowBuild.value
 ThisBuild / startYear := Option(2024)
@@ -22,17 +22,23 @@ ThisBuild / mergifyStewardConfig ~= { _.map {
     .withMergeMinors(true)
 }}
 
-lazy val `natchez-smithy4s` = project
-  .in(file("."))
-  .enablePlugins(Smithy4sCodegenPlugin)
+lazy val `natchez-smithy4s` = crossProject(JVMPlatform, JSPlatform)
+  .crossType(CrossType.Pure)
+  .in(file("core"))
   .settings(
+    Compile / smithy4sInputDirs := List(
+      baseDirectory.value.getParentFile / "src" / "main" / "smithy",
+    ),
     libraryDependencies ++= {
       Seq(
-        "com.disneystreaming.smithy4s" %% "smithy4s-core" % smithy4sVersion.value,
-        "com.disneystreaming.smithy4s" %% "smithy4s-http4s" % smithy4sVersion.value,
-        "com.disneystreaming.smithy4s" %% "smithy4s-cats" % smithy4sVersion.value,
-        "com.disneystreaming.smithy4s" %% "smithy4s-json" % smithy4sVersion.value,
-        "org.tpolecat" %% "natchez-core" % "0.3.5",
+        "com.disneystreaming.smithy4s" %%% "smithy4s-core" % smithy4sVersion.value,
+        "com.disneystreaming.smithy4s" %%% "smithy4s-json" % smithy4sVersion.value,
+        "org.tpolecat" %%% "natchez-core" % "0.3.5",
       )
     },
   )
+  .enablePlugins(Smithy4sCodegenPlugin)
+
+lazy val root = tlCrossRootProject
+  .aggregate(`natchez-smithy4s`)
+  .enablePlugins(NoPublishPlugin)
