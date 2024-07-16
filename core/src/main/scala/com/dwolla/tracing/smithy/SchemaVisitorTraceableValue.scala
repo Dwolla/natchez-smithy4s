@@ -4,7 +4,6 @@ import natchez.{TraceValue, TraceableValue}
 import smithy.api.TimestampFormat.DATE_TIME
 import smithy4s.capability.EncoderK
 import smithy4s.json.*
-import smithy4s.schema.Primitive.*
 import smithy4s.schema.*
 import smithy4s.{Schema, *}
 
@@ -38,22 +37,16 @@ class SchemaVisitorTraceableValue(override protected val cache: CompilationCache
                             tag: Primitive[P]): TraceableValue[P] =
     maybeRedact[P](hints)
       .getOrElse {
-        tag match {
-          case PString => TraceableValue.stringToTraceValue
-          case PShort => TraceValue.NumberValue(_)
-          case PInt => TraceableValue.intToTraceValue
-          case PFloat => TraceableValue.floatToTraceValue
-          case PLong => TraceableValue.longToTraceValue
-          case PDouble => TraceableValue.doubleToTraceValue
-          case PBigInt => TraceValue.NumberValue(_)
-          case PBigDecimal => TraceValue.NumberValue(_)
-          case PBoolean => TraceableValue.booleanToTraceValue
-          case PUUID => a => TraceValue.StringValue(a.toString)
-          case PByte => TraceValue.NumberValue(_)
-          case PBlob => a => TraceValue.StringValue(a.toBase64String)
-          case PDocument => a => TraceValue.StringValue(Json.writeDocumentAsBlob(a).toUTF8String)
-          case PTimestamp => a => TraceValue.StringValue(a.format(DATE_TIME))
-        }
+        implicit val traceableShort: TraceableValue[Short] = TraceValue.NumberValue(_)
+        implicit val traceableBigInt: TraceableValue[BigInt] = TraceValue.NumberValue(_)
+        implicit val traceableBigDecimal: TraceableValue[BigDecimal] = TraceValue.NumberValue(_)
+        implicit val traceableUUID: TraceableValue[java.util.UUID] = a => TraceValue.StringValue(a.toString)
+        implicit val traceableByte: TraceableValue[Byte] = TraceValue.NumberValue(_)
+        implicit val traceableBlob: TraceableValue[Blob] = a => TraceValue.StringValue(a.toBase64String)
+        implicit val traceableDocument: TraceableValue[Document] = a => TraceValue.StringValue(Json.writeDocumentAsBlob(a).toUTF8String)
+        implicit val traceableTimestamp: TraceableValue[Timestamp] = a => TraceValue.StringValue(a.format(DATE_TIME))
+
+        Primitive.deriving[TraceableValue].apply(tag)
       }
 
   override def collection[C[_], A](shapeId: ShapeId,
