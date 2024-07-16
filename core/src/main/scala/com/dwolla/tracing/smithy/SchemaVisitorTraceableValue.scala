@@ -55,21 +55,12 @@ class SchemaVisitorTraceableValue(override protected val cache: CompilationCache
                                    member: Schema[A]): TraceableValue[C[A]] = {
     implicit val memberTV: TraceableValue[A] = self(member)
 
-    def viaIterable(cc: Iterable[A]): String = {
-      val limit = 5
-      val size = cc.size
-      if (size < limit) cc.map(aToStringViaTraceableValue[A]).mkString("[", ", ", "]")
-      else cc.take(limit).map(aToStringViaTraceableValue[A]).mkString("[", ", ", "") + s", and ${size - limit} more]"
-    }
-
     maybeRedact[C[A]](hints)
-      .getOrElse {
-        tag match {
-          case CollectionTag.ListTag => viaIterable(_)
-          case CollectionTag.SetTag => viaIterable(_)
-          case CollectionTag.VectorTag => viaIterable(_)
-          case CollectionTag.IndexedSeqTag => viaIterable(_)
-        }
+      .getOrElse { (as: C[A]) =>
+        val limit = 5
+        val size = tag.iterator(as).size
+        if (size < limit) tag.iterator(as).map(aToStringViaTraceableValue[A]).mkString("[", ", ", "]")
+        else tag.iterator(as).take(limit).map(aToStringViaTraceableValue[A]).mkString("[", ", ", "") + s", and ${size - limit} more]"
       }
   }
 
