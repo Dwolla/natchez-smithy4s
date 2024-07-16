@@ -157,6 +157,7 @@ class SchemaVisitorTraceableValue(override protected val cache: CompilationCache
 
   override def option[A](schema: Schema[A]): TraceableValue[Option[A]] =
     maybeRedact[Option[A]](schema.hints).getOrElse {
-      _.fold[TraceValue]("None")(self(schema).toTraceValue)
+      val c: TraceableValue[A] = self(schema) // precompile the schema to TraceableValue[A]
+      _.fold[TraceValue]("None")(c.toTraceValue)
     }
 }
