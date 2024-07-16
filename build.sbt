@@ -21,6 +21,7 @@ ThisBuild / mergifyStewardConfig ~= { _.map {
   _.withAuthor("dwolla-oss-scala-steward[bot]")
     .withMergeMinors(true)
 }}
+ThisBuild / tlCiReleaseBranches += "main"
 
 lazy val `natchez-smithy4s` = crossProject(JVMPlatform, JSPlatform)
   .crossType(CrossType.Pure)
