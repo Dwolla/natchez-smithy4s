@@ -26,3 +26,11 @@ pull_request_rules:
       add:
       - core
       remove: []
+- name: Label testing-support PRs
+  conditions:
+  - files~=^testing-support/
+  actions:
+    label:
+      add:
+      - testing-support
+      remove: []
