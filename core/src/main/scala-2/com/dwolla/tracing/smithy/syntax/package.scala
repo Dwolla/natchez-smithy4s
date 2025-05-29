@@ -1,5 +1,6 @@
 package com.dwolla.tracing.smithy
 
+import cats.*
 import smithy4s._
 import smithy4s.kinds._
 import natchez.{Span, Trace}
@@ -38,5 +39,50 @@ package object syntax {
                                  (implicit S: Service[Alg],
                                   T: Trace[F]): Alg[Kind1[F]#toKind5] =
       SimpleAlgebraInstrumentation(alg, spanOptions)
+
+    /**
+     * Wraps the provided algebra with instrumentation logic that traces its inputs. This allows
+     * parameters of the invoked operations to be appended to the current trace as annotations,
+     * enhancing observability and debugging.
+     *
+     * This should be added to an algebra instance before [[SimpleAlgebraInstrumentation]], since
+     * that will wrap this one, adding the new span for the operation.
+     *
+     * @param F           An implicit `Applicative[F]` used to combine multiple effects in `F[_]`
+     * @param S           An implicit `Service[Alg]` instance that provides functionality to instrument
+     *                    the algebra.
+     * @param T           An implicit `Trace[F]` instance that provides tracing capabilities for the
+     *                    effect type `F`.
+     * @return A transformed algebra instance where all operations include input tracing as part of the instrumentation.
+     */
+    def withTracedInputs()
+                        (implicit
+                         F: Applicative[F],
+                         S: Service[Alg],
+                         T: Trace[F],
+                        ): Alg[Kind1[F]#toKind5] =
+      AlgebraInstrumentationWithInputs(alg)
+
+    /**
+     * Wraps the given algebra with tracing instrumentation for outputs.
+     * Whenever an operation is invoked on the wrapped algebra, the return value
+     * will be appended to the current trace as an annotation.
+     *
+     * This should be added to an algebra instance before [[SimpleAlgebraInstrumentation]], since
+     * that will wrap this one, adding the new span for the operation.
+     *
+     * @param F           An implicit `Monad[F]` used to combine multiple effects in `F[_]`
+     * @param S           An implicit `Service[Alg]` instance that provides functionality to instrument
+     *                    the algebra.
+     * @param T           An implicit `Trace[F]` instance that provides tracing capabilities for the
+     *                    effect type `F`.
+     */
+    def withTracedOutputs()
+                         (implicit
+                          F: Monad[F],
+                          S: Service[Alg],
+                          T: Trace[F],
+                         ): Alg[Kind1[F]#toKind5] =
+      AlgebraInstrumentationWithOutputs(alg)
   }
 }
