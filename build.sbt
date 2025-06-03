@@ -15,7 +15,6 @@ ThisBuild / developers := List(
     url("https://dwolla.com")
   ),
 )
-ThisBuild / tlSonatypeUseLegacyHost := true
 ThisBuild / mergifyRequiredJobs ++= Seq("validate-steward")
 ThisBuild / mergifyStewardConfig ~= { _.map {
   _.withAuthor("dwolla-oss-scala-steward[bot]")
