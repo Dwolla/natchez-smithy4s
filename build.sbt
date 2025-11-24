@@ -1,7 +1,7 @@
 ThisBuild / organization := "com.dwolla"
 ThisBuild / homepage := Option(url("https://github.com/Dwolla/natchez-smithy4s"))
 ThisBuild / tlBaseVersion := "0.1"
-ThisBuild / crossScalaVersions := Seq("2.13.17", "3.3.7")
+ThisBuild / crossScalaVersions := Seq("2.13.18", "3.3.7")
 ThisBuild / githubWorkflowScalaVersions := Seq("2.13", "3")
 ThisBuild / tlJdkRelease := Option(8)
 ThisBuild / tlFatalWarnings := githubIsWorkflowBuild.value
