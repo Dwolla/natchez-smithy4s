@@ -20,7 +20,7 @@ package object syntax {
     def withSimpleInstrumentation()
                                  (implicit S: Service[Alg],
                                   T: Trace[F]): Alg[Kind1[F]#toKind5] =
-      withSimpleInstrumentation(Span.Options.Defaults.withSpanKind(Span.SpanKind.Server))
+      SimpleAlgebraInstrumentation(alg)
 
     /**
      * Wraps the given algebra `alg: Alg[F]` with instrumentation that uses the provided `spanOptions`
