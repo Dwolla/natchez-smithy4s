@@ -18,7 +18,7 @@ extension [Alg[_[_, _, _, _, _]], F[_] : Trace](alg: Alg[Kind1[F]#toKind5]) {
    */
   def withSimpleInstrumentation()
                                (using Service[Alg]): Alg[Kind1[F]#toKind5] =
-    withSimpleInstrumentation(Span.Options.Defaults.withSpanKind(Span.SpanKind.Server))
+    SimpleAlgebraInstrumentation(alg)
 
   /**
    * Wraps an existing algebra implementation with simple instrumentation to trace its operations.

@@ -41,7 +41,7 @@ object SimpleAlgebraInstrumentation {
    */
   def apply[Alg[_[_, _, _, _, _]], F[_] : Trace](alg: Alg[Kind1[F]#toKind5])
                                                 (implicit S: Service[Alg]): Alg[Kind1[F]#toKind5] =
-    SimpleAlgebraInstrumentation(alg, Span.Options.Defaults.withSpanKind(Span.SpanKind.Server))
+    SimpleAlgebraInstrumentation(alg, Span.Options.Defaults)
 }
 
 object AlgebraInstrumentationWithInputs {

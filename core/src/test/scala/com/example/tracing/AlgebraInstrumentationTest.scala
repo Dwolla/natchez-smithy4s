@@ -106,7 +106,7 @@ class AlgebraInstrumentationTest
 
           natchezDirectives: Chain[(InMemory.Lineage, InMemory.NatchezCommand)] <- entryPoint.ref.get
         } yield {
-          val defaultSpanOptions = Span.Options.Defaults.withSpanKind(Span.SpanKind.Server)
+          val defaultSpanOptions = Span.Options.Defaults
           val expectedDirectives: Chain[(InMemory.Lineage, InMemory.NatchezCommand)] =
             expectedNatchezDirectivesBeforePotentialError(options, operation.endpoint.name, maybeSpanOptions.getOrElse(defaultSpanOptions)) ++
               additionalDirectives ++
