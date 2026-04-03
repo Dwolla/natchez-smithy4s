@@ -33,8 +33,8 @@ lazy val `natchez-smithy4s` = crossProject(JVMPlatform, JSPlatform)
       Seq(
         "com.disneystreaming.smithy4s" %%% "smithy4s-core" % smithy4sVersion.value,
         "com.disneystreaming.smithy4s" %%% "smithy4s-json" % smithy4sVersion.value,
-        "org.tpolecat" %%% "natchez-core" % "0.3.8",
-        "org.tpolecat" %%% "natchez-testkit" % "0.3.8" % Test,
+        "org.tpolecat" %%% "natchez-core" % "0.3.9",
+        "org.tpolecat" %%% "natchez-testkit" % "0.3.9" % Test,
         "org.scalameta" %%% "munit" % "1.2.4" % Test,
         "org.scalameta" %%% "munit-scalacheck" % "1.2.0" % Test,
         "org.typelevel" %%% "munit-cats-effect" % "2.2.0" % Test,
