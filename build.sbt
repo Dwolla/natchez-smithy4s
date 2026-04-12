@@ -36,7 +36,7 @@ lazy val `natchez-smithy4s` = crossProject(JVMPlatform, JSPlatform)
         "org.tpolecat" %%% "natchez-core" % "0.3.9",
         "org.tpolecat" %%% "natchez-testkit" % "0.3.9" % Test,
         "org.scalameta" %%% "munit" % "1.3.0" % Test,
-        "org.scalameta" %%% "munit-scalacheck" % "1.2.0" % Test,
+        "org.scalameta" %%% "munit-scalacheck" % "1.3.0" % Test,
         "org.typelevel" %%% "munit-cats-effect" % "2.2.0" % Test,
         "org.typelevel" %%% "scalacheck-effect" % "2.1.0" % Test,
         "org.typelevel" %%% "scalacheck-effect-munit" % "2.1.0" % Test,
