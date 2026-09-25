@@ -5,6 +5,7 @@ import cats.effect.testkit.TestControl
 import cats.syntax.all.*
 import com.example.tracing.*
 import com.example.tracing.TracingServiceOperation.*
+import com.dwolla.metrics.smithy.syntax.*
 import munit.{CatsEffectSuite, ScalaCheckEffectSuite}
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalacheck.effect.PropF.forAllF
@@ -154,6 +155,26 @@ class AlgebraMetricsTest
             }
             assertEquals(metrics.map(_.name).filter(_.startsWith("rpc.")), List(expectedMetric))
             assert(!metrics.exists(_.name == otherMetric))
+          }
+        }
+      }
+    }
+  }
+
+  test("withMetrics syntax instruments the algebra the same way AlgebraMetrics does") {
+    forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration) =>
+      TestControl.executeEmbed {
+        MetricsTestkit.inMemory[IO]().use { testkit =>
+          testkit.meterProvider.get("AlgebraMetricsTest").flatMap { implicit meter =>
+            for {
+              instrumented <- (new ControlledTracingService(latency, successfulResponse.pure[IO]): TracingService[IO]).withMetrics(role)
+              _ <- invoke(instrumented, operation)
+              metrics <- testkit.collectMetrics
+            } yield {
+              val points = histogramPoints(metrics, role.callDurationMetricName)
+              assertEquals(points.map(_.attributes), List(expectedAttributes(operation, None)))
+              assertEqualsDouble(points.flatMap(_.stats).map(_.sum).sum, latency.toUnit(SECONDS), 1e-9)
+            }
           }
         }
       }

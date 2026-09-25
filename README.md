@@ -1,6 +1,7 @@
 # Natchez-Smithy4s
 
-Utilities for integration between [Natchez](https://github.com/typelevel/natchez) and [Smithy4s](https://disneystreaming.github.io/smithy4s/).
+Utilities for integration between [Smithy4s](https://disneystreaming.github.io/smithy4s/) and both
+[Natchez](https://github.com/typelevel/natchez) (tracing) and [otel4s](https://typelevel.org/otel4s/) (metrics).
 
 ## Making `natchez.TraceableValue[A]` instances available for Smithy shapes
 
@@ -108,3 +109,35 @@ When an operation on `instrumentedAlgebra` is called:
   using the `@traceable(redacted = "…")` trait (as described in the "Usage" 
   section regarding annotating shapes) will be automatically respected. 
   Sensitive fields will be redacted as configured in your traces.
+
+## Recording otel4s Metrics for Service Algebras
+
+The `otel4s-smithy4s-metrics` module (no natchez dependency) records the duration of every call
+to a Smithy-generated algebra, following the OpenTelemetry
+[RPC metrics semantic conventions](https://opentelemetry.io/docs/specs/semconv/rpc/rpc-metrics/).
+
+```scala
+libraryDependencies += "com.dwolla" %% "otel4s-smithy4s-metrics" % "<version>"
+```
+
+```scala
+import com.dwolla.metrics.smithy.RpcRole
+import com.dwolla.metrics.smithy.syntax.*
+
+// requires an implicit otel4s Meter[IO] in scope
+val instrumented: IO[MyAlgebra[IO]] = new MyAlgebraImpl[IO].withMetrics(RpcRole.Server)
+```
+
+Use `RpcRole.Server` for a service implementation and `RpcRole.Client` for a smithy4s client.
+Durations are recorded in seconds to a histogram named `rpc.server.call.duration` or
+`rpc.client.call.duration`, using the bucket boundaries the conventions recommend. Each
+measurement has these attributes:
+
+| Attribute         | Value                                                                              |
+|-------------------|------------------------------------------------------------------------------------|
+| `rpc.system.name` | `smithy`                                                                           |
+| `rpc.method`      | `<namespace>.<Service>/<Operation>`, e.g. `com.dwolla.example.smithy.MyAlgebra/GetStatus` |
+| `error.type`      | only on failure: the error's fully-qualified class name, or `canceled`             |
+
+`withMetrics` returns `F[MyAlgebra[F]]` because creating the histogram is effectful. It can be
+combined with the tracing enhancements above in any order; timing brackets whatever it wraps.
