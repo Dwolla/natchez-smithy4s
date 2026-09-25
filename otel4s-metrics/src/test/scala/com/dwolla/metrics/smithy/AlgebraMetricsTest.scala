@@ -130,6 +130,7 @@ class AlgebraMetricsTest
           val recordedCounts = points.flatMap { p =>
             (p.attributes.get[String]("rpc.method").map(_.value), p.stats.map(_.count)).tupled.toList
           }.toMap
+          assertEquals(points.size, expectedCounts.size)
           assertEquals(recordedCounts, expectedCounts)
         }
     }
@@ -145,7 +146,7 @@ class AlgebraMetricsTest
         MetricsTestkit.inMemory[IO]().use { testkit =>
           for {
             meter <- testkit.meterProvider.get("AlgebraMetricsTest")
-            instrumented <- AlgebraMetrics(new ControlledTracingService(1.second, successfulResponse.pure[IO]): TracingService[IO], role)(implicitly, meter, implicitly)
+            instrumented <- AlgebraMetrics(new ControlledTracingService(1.second, successfulResponse.pure[IO]), role)(implicitly, meter, implicitly)
             _ <- invoke(instrumented, operation)
             metrics <- testkit.collectMetrics
           } yield {
@@ -167,7 +168,7 @@ class AlgebraMetricsTest
         MetricsTestkit.inMemory[IO]().use { testkit =>
           testkit.meterProvider.get("AlgebraMetricsTest").flatMap { implicit meter =>
             for {
-              instrumented <- (new ControlledTracingService(latency, successfulResponse.pure[IO]): TracingService[IO]).withMetrics(role)
+              instrumented <- new ControlledTracingService(latency, successfulResponse.pure[IO]).withMetrics(role)
               _ <- invoke(instrumented, operation)
               metrics <- testkit.collectMetrics
             } yield {

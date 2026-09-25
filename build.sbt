@@ -22,6 +22,8 @@ ThisBuild / mergifyStewardConfig ~= { _.map {
 }}
 ThisBuild / tlCiReleaseBranches += "main"
 
+val otel4sVersion = "1.1.0"
+
 lazy val `natchez-smithy4s` = crossProject(JVMPlatform, JSPlatform)
   .crossType(CrossType.Pure)
   .in(file("core"))
@@ -70,8 +72,8 @@ lazy val `otel4s-smithy4s-metrics` = crossProject(JVMPlatform, JSPlatform)
     libraryDependencies ++= {
       Seq(
         "com.disneystreaming.smithy4s" %%% "smithy4s-core" % smithy4sVersion.value,
-        "org.typelevel" %%% "otel4s-core-metrics" % "1.1.0",
-        "org.typelevel" %%% "otel4s-semconv-metrics-experimental" % "1.1.0" % Test,
+        "org.typelevel" %%% "otel4s-core-metrics" % otel4sVersion,
+        "org.typelevel" %%% "otel4s-semconv-metrics-experimental" % otel4sVersion % Test,
         "org.typelevel" %%% "otel4s-sdk-metrics-testkit" % "0.19.4" % Test,
         "org.typelevel" %%% "cats-effect-testkit" % "3.7.0" % Test,
         "org.scalameta" %%% "munit" % "1.3.6" % Test,

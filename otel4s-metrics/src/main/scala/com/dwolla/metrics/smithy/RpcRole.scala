@@ -6,7 +6,7 @@ package com.dwolla.metrics.smithy
  * they are instrumenting; it selects the OpenTelemetry metric the call durations are recorded to.
  */
 sealed abstract class RpcRole private[smithy] (private[smithy] val callDurationMetricName: String,
-                                               private[smithy] val callDurationDescription: String)
+                                               private[smithy] val callDurationDescription: String) extends Product with Serializable
 
 object RpcRole {
   /** The algebra is a server-side implementation handling incoming calls. */

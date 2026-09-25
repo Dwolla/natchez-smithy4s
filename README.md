@@ -123,9 +123,13 @@ libraryDependencies += "com.dwolla" %% "otel4s-smithy4s-metrics" % "<version>"
 ```scala
 import com.dwolla.metrics.smithy.RpcRole
 import com.dwolla.metrics.smithy.syntax.*
+import org.typelevel.otel4s.metrics.MeterProvider
 
-// requires an implicit otel4s Meter[IO] in scope
-val instrumented: IO[MyAlgebra[IO]] = new MyAlgebraImpl[IO].withMetrics(RpcRole.Server)
+// withMetrics needs an implicit otel4s Meter[IO] in scope; MeterProvider[IO] supplies one
+val instrumented: IO[MyAlgebra[IO]] =
+  MeterProvider[IO].get("my-service").flatMap { implicit meter =>
+    new MyAlgebraImpl[IO].withMetrics(RpcRole.Server)
+  }
 ```
 
 Use `RpcRole.Server` for a service implementation and `RpcRole.Client` for a smithy4s client.
@@ -139,5 +143,17 @@ measurement has these attributes:
 | `rpc.method`      | `<namespace>.<Service>/<Operation>`, e.g. `com.dwolla.example.smithy.MyAlgebra/GetStatus` |
 | `error.type`      | only on failure: the error's fully-qualified class name, or `canceled`             |
 
-`withMetrics` returns `F[MyAlgebra[F]]` because creating the histogram is effectful. It can be
-combined with the tracing enhancements above in any order; timing brackets whatever it wraps.
+`withMetrics` returns `F[MyAlgebra[F]]` because creating the histogram is effectful, so it can't be
+chained directly with the tracing enhancements above the way they chain with each other — compose it
+with `.map` instead. Its timing brackets whatever algebra it wraps, so apply it to the innermost layer
+you want timed:
+
+```scala
+val instrumented: IO[MyAlgebra[IO]] =
+  MeterProvider[IO].get("my-service").flatMap { implicit meter =>
+    new MyAlgebraImpl[IO]
+      .withTracedInputs()
+      .withMetrics(RpcRole.Server)
+      .map(_.withSimpleInstrumentation())
+  }
+```

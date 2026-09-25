@@ -12,7 +12,7 @@ package object syntax {
      * call-duration histogram for `role`. See [[AlgebraMetrics]] for the recorded attributes.
      *
      * @param role Whether `alg` is a server implementation or a client.
-     * @param F    Used to time the call and to record its outcome even if it fails or is canceled.
+     * @param F    Used to bracket the call so its outcome is recorded even if it fails or is canceled.
      * @param M    The `Meter` the histogram is created from.
      * @param S    The `Service` instance for the algebra.
      * @return An effect that creates the histogram and yields the instrumented algebra.
