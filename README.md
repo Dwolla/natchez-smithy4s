@@ -123,14 +123,10 @@ libraryDependencies += "com.dwolla" %% "otel4s-smithy4s-metrics" % "<version>"
 ```scala
 import com.dwolla.metrics.smithy.RpcRole
 import com.dwolla.metrics.smithy.syntax.*
-import org.typelevel.otel4s.metrics.MeterProvider
 
-// withMetrics needs an implicit otel4s Meter[IO] in scope; MeterProvider[IO] supplies one,
-// named for the instrumenting library (see "Choosing a Meter" below)
+// withMetrics needs an implicit otel4s MeterProvider[IO] in scope (e.g. from OtelJava or the otel4s SDK)
 val instrumented: IO[MyAlgebra[IO]] =
-  MeterProvider[IO].get("otel4s-smithy4s-metrics").flatMap { implicit meter =>
-    new MyAlgebraImpl[IO].withMetrics(RpcRole.Server)
-  }
+  new MyAlgebraImpl[IO].withMetrics(RpcRole.Server)
 ```
 
 Use `RpcRole.Server` for a service implementation and `RpcRole.Client` for a smithy4s client.
@@ -142,18 +138,21 @@ measurement has these attributes:
 |-------------------|------------------------------------------------------------------------------------|
 | `rpc.system.name` | `smithy`                                                                           |
 | `rpc.method`      | `<namespace>.<Service>/<Operation>`, e.g. `com.dwolla.example.smithy.MyAlgebra/GetStatus` |
-| `error.type`      | only on failure: the error's fully-qualified class name, or `canceled`             |
+| `error.type`      | only on failure; see below                                                         |
 
-**Choosing a Meter.** A metric stream is identified by its instrumentation scope — the `Meter` it
-was recorded through — as well as its name, and the scope is meant to name the instrumenting
-library, not the application (that's the resource's `service.name`). Give this module its own
-`Meter`, as above, rather than one shared application-wide `Meter`. natchez-tagless's
-`otel4s-tagless-metrics` records the same RPC metric with an identical name, unit, description,
-and buckets, so in a service that uses both (say, for thrift and smithy4s endpoints) the two are
-directly comparable, told apart by `rpc.system.name`; separate scopes keep them from conflicting
-if their metric descriptions ever drift apart, and a query that aggregates by `rpc.system.name`
-still combines both. Share one `Meter` only if your metrics backend can't aggregate across
-instrumentation scopes.
+A failed call's `error.type` is one of:
+
+- the Smithy shape ID of an error the operation declares, e.g. `com.dwolla.example.smithy#NotFound`;
+- otherwise, the fully-qualified class name of the error raised, e.g. `java.lang.IllegalStateException`
+  or, for a smithy4s client, `smithy4s.http.UnknownErrorResponse`;
+- `canceled` if the call was canceled.
+
+**Instrumentation scope.** The histogram is recorded through a `Meter` this module obtains from the
+`MeterProvider`, with the instrumentation scope `com.dwolla.metrics.smithy` and this library's version.
+natchez-tagless's `otel4s-tagless-metrics` records the same RPC metric with an identical name, unit,
+description, and buckets under its own scope, so in a service that uses both (say, for thrift and
+smithy4s endpoints) the two are directly comparable, told apart by `rpc.system.name`, and a query that
+aggregates by `rpc.system.name` combines both.
 
 `withMetrics` returns `F[MyAlgebra[F]]` because creating the histogram is effectful, so it can't be
 chained directly with the tracing enhancements above the way they chain with each other — compose it
@@ -162,10 +161,8 @@ you want timed:
 
 ```scala
 val instrumented: IO[MyAlgebra[IO]] =
-  MeterProvider[IO].get("otel4s-smithy4s-metrics").flatMap { implicit meter =>
-    new MyAlgebraImpl[IO]
-      .withTracedInputs()
-      .withMetrics(RpcRole.Server)
-      .map(_.withSimpleInstrumentation())
-  }
+  new MyAlgebraImpl[IO]
+    .withTracedInputs()
+    .withMetrics(RpcRole.Server)
+    .map(_.withSimpleInstrumentation())
 ```

@@ -16,8 +16,10 @@ object AlgebraMetrics {
    * `rpc.client.call.duration` histogram (chosen by `role`).
    *
    * Each measurement carries `rpc.system.name = "smithy"` and
-   * `rpc.method = "<namespace>.<Service>/<Operation>"`. Failed calls also carry `error.type`: the
-   * fully-qualified class name of the error raised, or `"canceled"` if the call was canceled.
+   * `rpc.method = "<namespace>.<Service>/<Operation>"`. Failed calls also carry `error.type`:
+   *  - the Smithy shape ID (e.g. `"com.example#NotFound"`) of an error the operation declares;
+   *  - otherwise, the fully-qualified class name of the error raised;
+   *  - `"canceled"` if the call was canceled.
    * Errors and cancellation propagate unchanged.
    *
    * The histogram is created from a `Meter` this library obtains from `MeterProvider[F]`, named
@@ -44,7 +46,7 @@ object AlgebraMetrics {
         override def apply[I, E, O, SI, SO](fa: S.Endpoint[I, E, O, SI, SO]): I => F[O] = {
           val rpcMethod = RpcSemanticConventions.rpcMethod(S.id, fa.name)
           val attributesFor: Resource.ExitCase => List[Attribute[_]] = exitCase =>
-            List[Attribute[_]](RpcSemanticConventions.SmithyRpcSystem, rpcMethod) ++ RpcSemanticConventions.errorType(exitCase).toList
+            List[Attribute[_]](RpcSemanticConventions.SmithyRpcSystem, rpcMethod) ++ RpcSemanticConventions.errorType(fa.error)(exitCase).toList
 
           (i: I) =>
             callDuration

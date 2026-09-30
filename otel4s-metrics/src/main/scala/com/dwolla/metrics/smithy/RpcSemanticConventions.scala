@@ -6,6 +6,7 @@ import cats.syntax.all.*
 import org.typelevel.otel4s.{Attribute, AttributeKey}
 import org.typelevel.otel4s.metrics.{BucketBoundaries, Histogram, MeterProvider}
 import smithy4s.ShapeId
+import smithy4s.schema.ErrorSchema
 
 /**
  * The subset of the OpenTelemetry RPC semantic conventions this library emits. These are
@@ -31,11 +32,21 @@ private[smithy] object RpcSemanticConventions {
   def rpcMethod(serviceId: ShapeId, operationName: String): Attribute[String] =
     Attribute(RpcMethod, s"${serviceId.namespace}.${serviceId.name}/$operationName")
 
-  def errorType(exitCase: Resource.ExitCase): Option[Attribute[String]] =
+  /**
+   * `error.type` for a call to an endpoint whose declared errors are `modeledErrors`: the Smithy
+   * shape ID of a declared error, the class name of any other error, or `canceled`.
+   */
+  def errorType[E](modeledErrors: Option[ErrorSchema[E]])(exitCase: Resource.ExitCase): Option[Attribute[String]] =
     exitCase match {
       case Resource.ExitCase.Succeeded => None
-      case Resource.ExitCase.Errored(e) => Attribute(ErrorType, e.getClass.getName).some
+      case Resource.ExitCase.Errored(e) =>
+        Attribute(ErrorType, modeledErrorShapeId(modeledErrors, e).fold(e.getClass.getName)(_.show)).some
       case Resource.ExitCase.Canceled => Attribute(ErrorType, CanceledErrorType).some
+    }
+
+  private def modeledErrorShapeId[E](modeledErrors: Option[ErrorSchema[E]], error: Throwable): Option[ShapeId] =
+    modeledErrors.flatMap { errorSchema =>
+      errorSchema.liftError(error).map(e => errorSchema.alternatives(errorSchema.ordinal(e)).schema.shapeId)
     }
 
   def callDurationHistogram[F[_] : FlatMap : MeterProvider](role: RpcRole): F[Histogram[F, Double]] =

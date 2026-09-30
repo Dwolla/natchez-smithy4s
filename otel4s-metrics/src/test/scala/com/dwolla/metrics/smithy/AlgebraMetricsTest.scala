@@ -27,15 +27,22 @@ class AlgebraMetricsTest
 
   private implicit val arbLatency: Arbitrary[FiniteDuration] = Arbitrary(Gen.chooseNum(0L, 30000L).map(_.millis))
 
-  /** A failure paired with the `error.type` we expect for it, written out literally. */
-  private implicit val arbFailure: Arbitrary[(Throwable, String)] = Arbitrary {
+  /**
+   * A failure paired with the `error.type` we expect for it on a given operation, written out
+   * literally. `TracingError` is modeled only on `ProcessRequest`, so only there is it reported by
+   * its Smithy shape ID; anywhere else it's just another exception, reported by class name.
+   */
+  private implicit val arbFailure: Arbitrary[(Throwable, TracingServiceOperation[_, _, _, _, _] => String)] = Arbitrary {
     Gen.oneOf(
-      Gen.alphaStr.map(msg => (new RuntimeException(msg), "java.lang.RuntimeException")),
-      Gen.alphaStr.map(msg => (new IllegalStateException(msg), "java.lang.IllegalStateException")),
+      Gen.alphaStr.map(msg => (new RuntimeException(msg), (_: TracingServiceOperation[_, _, _, _, _]) => "java.lang.RuntimeException")),
+      Gen.alphaStr.map(msg => (new IllegalStateException(msg), (_: TracingServiceOperation[_, _, _, _, _]) => "java.lang.IllegalStateException")),
       for {
         msg <- Gen.alphaStr
         code <- Gen.option(Gen.posNum[Int])
-      } yield (TracingError(msg, code), "com.example.tracing.TracingError"),
+      } yield (TracingError(msg, code), {
+        case _: ProcessRequest => "com.example.tracing#TracingError"
+        case _: GetStatus => "com.example.tracing.TracingError"
+      }: TracingServiceOperation[_, _, _, _, _] => String),
     )
   }
 
@@ -99,13 +106,13 @@ class AlgebraMetricsTest
     }
   }
 
-  test("a failed call re-raises the same error and records error.type as the error's class name") {
-    forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration, failure: (Throwable, String)) =>
+  test("a failed call re-raises the same error and records error.type as the operation's modeled error shape ID, else the error's class name") {
+    forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration, failure: (Throwable, TracingServiceOperation[_, _, _, _, _] => String)) =>
       val (error, expectedErrorType) = failure
       recordedPoints(role, new ControlledTracingService(latency, error.raiseError[IO, TracingResponse]))(invoke(_, operation).attempt)
         .map { case (result, points) =>
           assert(result.left.exists(_ eq error), s"expected the original error to propagate, got $result")
-          assertEquals(points.map(_.attributes), List(expectedAttributes(operation, expectedErrorType.some)))
+          assertEquals(points.map(_.attributes), List(expectedAttributes(operation, expectedErrorType(operation).some)))
           assertEqualsDouble(points.flatMap(_.stats).map(_.sum).sum, latency.toUnit(SECONDS), 1e-9)
         }
     }
