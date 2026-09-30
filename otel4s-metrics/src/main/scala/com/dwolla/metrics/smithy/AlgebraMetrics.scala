@@ -20,6 +20,11 @@ object AlgebraMetrics {
    * fully-qualified class name of the error raised, or `"canceled"` if the call was canceled.
    * Errors and cancellation propagate unchanged.
    *
+   * Pass a `Meter` named for this library (its instrumentation scope) rather than one shared
+   * application-wide `Meter`; natchez-tagless's `otel4s-tagless-metrics` records the same metric
+   * with an identical descriptor, and separate scopes keep the two from conflicting. See the
+   * README's "Choosing a Meter".
+   *
    * @param alg  Original algebra implementation to be instrumented.
    * @param role Whether `alg` is a server implementation or a client.
    * @param S    The `Service` instance for the algebra.

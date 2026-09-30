@@ -125,9 +125,10 @@ import com.dwolla.metrics.smithy.RpcRole
 import com.dwolla.metrics.smithy.syntax.*
 import org.typelevel.otel4s.metrics.MeterProvider
 
-// withMetrics needs an implicit otel4s Meter[IO] in scope; MeterProvider[IO] supplies one
+// withMetrics needs an implicit otel4s Meter[IO] in scope; MeterProvider[IO] supplies one,
+// named for the instrumenting library (see "Choosing a Meter" below)
 val instrumented: IO[MyAlgebra[IO]] =
-  MeterProvider[IO].get("my-service").flatMap { implicit meter =>
+  MeterProvider[IO].get("otel4s-smithy4s-metrics").flatMap { implicit meter =>
     new MyAlgebraImpl[IO].withMetrics(RpcRole.Server)
   }
 ```
@@ -143,6 +144,17 @@ measurement has these attributes:
 | `rpc.method`      | `<namespace>.<Service>/<Operation>`, e.g. `com.dwolla.example.smithy.MyAlgebra/GetStatus` |
 | `error.type`      | only on failure: the error's fully-qualified class name, or `canceled`             |
 
+**Choosing a Meter.** A metric stream is identified by its instrumentation scope — the `Meter` it
+was recorded through — as well as its name, and the scope is meant to name the instrumenting
+library, not the application (that's the resource's `service.name`). Give this module its own
+`Meter`, as above, rather than one shared application-wide `Meter`. natchez-tagless's
+`otel4s-tagless-metrics` records the same RPC metric with an identical name, unit, description,
+and buckets, so in a service that uses both (say, for thrift and smithy4s endpoints) the two are
+directly comparable, told apart by `rpc.system.name`; separate scopes keep them from conflicting
+if their metric descriptions ever drift apart, and a query that aggregates by `rpc.system.name`
+still combines both. Share one `Meter` only if your metrics backend can't aggregate across
+instrumentation scopes.
+
 `withMetrics` returns `F[MyAlgebra[F]]` because creating the histogram is effectful, so it can't be
 chained directly with the tracing enhancements above the way they chain with each other — compose it
 with `.map` instead. Its timing brackets whatever algebra it wraps, so apply it to the innermost layer
@@ -150,7 +162,7 @@ you want timed:
 
 ```scala
 val instrumented: IO[MyAlgebra[IO]] =
-  MeterProvider[IO].get("my-service").flatMap { implicit meter =>
+  MeterProvider[IO].get("otel4s-smithy4s-metrics").flatMap { implicit meter =>
     new MyAlgebraImpl[IO]
       .withTracedInputs()
       .withMetrics(RpcRole.Server)
