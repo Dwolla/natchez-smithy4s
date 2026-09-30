@@ -26,6 +26,14 @@ pull_request_rules:
       add:
       - core
       remove: []
+- name: Label otel4s-metrics PRs
+  conditions:
+  - files~=^otel4s-metrics/
+  actions:
+    label:
+      add:
+      - otel4s-metrics
+      remove: []
 - name: Label testing-support PRs
   conditions:
   - files~=^testing-support/

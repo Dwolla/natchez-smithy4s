@@ -5,34 +5,17 @@ import cats.effect.IO
 import cats.syntax.all.*
 import com.dwolla.tracing.smithy.SchemaVisitorTraceableValue
 import com.dwolla.tracing.smithy.syntax.*
-import com.example.tracing.TracingServiceOperation.*
 import munit.{CatsEffectSuite, Location, ScalaCheckEffectSuite, TestOptions}
 import natchez.*
 import natchez.InMemory.Lineage.*
 import natchez.InMemory.NatchezCommand.*
-import org.scalacheck.*
-import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.effect.PropF.forAllF
 
 class AlgebraInstrumentationTest
   extends CatsEffectSuite
     with ScalaCheckEffectSuite
-    with natchez.Arbitraries {
-
-  implicit val arbTracingRequest: Arbitrary[TracingRequest] = Arbitrary {
-    for {
-      id <- Gen.identifier
-      value <- Gen.chooseNum(1, 100)
-      description <- Gen.option(Gen.alphaNumStr.suchThat(_.nonEmpty))
-    } yield TracingRequest(id, value, description)
-  }
-
-  implicit val arbTracingServiceOperation: Arbitrary[TracingServiceOperation[_, _, _, _, _]] = Arbitrary {
-    Gen.oneOf(
-      Gen.const(GetStatus()),
-      arbitrary[TracingRequest].map(ProcessRequest(_)),
-    )
-  }
+    with natchez.Arbitraries
+    with TracingServiceArbitraries {
 
   instrumentationTest("SimpleAlgebraInstrumentation should create spans for arbitrary operations") { (_, _, _) => _ =>
     InstrumentationTestParameters.defaults
