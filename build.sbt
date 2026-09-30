@@ -69,6 +69,9 @@ lazy val `otel4s-smithy4s-metrics` = crossProject(JVMPlatform, JSPlatform)
   .in(file("otel4s-metrics"))
   .settings(
     tlVersionIntroduced := Map("2.13" -> "0.1.3", "3" -> "0.1.3"),
+    buildInfoKeys := Seq[BuildInfoKey](version),
+    buildInfoPackage := "com.dwolla.metrics.smithy",
+    buildInfoOptions += BuildInfoOption.PackagePrivate,
     libraryDependencies ++= {
       Seq(
         "com.disneystreaming.smithy4s" %%% "smithy4s-core" % smithy4sVersion.value,
@@ -84,6 +87,7 @@ lazy val `otel4s-smithy4s-metrics` = crossProject(JVMPlatform, JSPlatform)
       )
     },
   )
+  .enablePlugins(BuildInfoPlugin)
   .dependsOn(`testing-support` % Test)
 
 lazy val root = tlCrossRootProject

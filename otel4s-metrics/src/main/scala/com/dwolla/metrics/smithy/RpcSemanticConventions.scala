@@ -1,9 +1,10 @@
 package com.dwolla.metrics.smithy
 
+import cats.FlatMap
 import cats.effect.kernel.Resource
 import cats.syntax.all.*
 import org.typelevel.otel4s.{Attribute, AttributeKey}
-import org.typelevel.otel4s.metrics.{BucketBoundaries, Histogram, Meter}
+import org.typelevel.otel4s.metrics.{BucketBoundaries, Histogram, MeterProvider}
 import smithy4s.ShapeId
 
 /**
@@ -13,6 +14,9 @@ import smithy4s.ShapeId
  * checks them against that module.
  */
 private[smithy] object RpcSemanticConventions {
+  /** The OpenTelemetry instrumentation scope this library records its metrics under. */
+  val InstrumentationScopeName: String = "com.dwolla.metrics.smithy"
+
   val RpcSystemName: AttributeKey[String] = AttributeKey("rpc.system.name")
   val RpcMethod: AttributeKey[String] = AttributeKey("rpc.method")
   val ErrorType: AttributeKey[String] = AttributeKey("error.type")
@@ -34,11 +38,16 @@ private[smithy] object RpcSemanticConventions {
       case Resource.ExitCase.Canceled => Attribute(ErrorType, CanceledErrorType).some
     }
 
-  def callDurationHistogram[F[_] : Meter](role: RpcRole): F[Histogram[F, Double]] =
-    Meter[F]
-      .histogram[Double](role.callDurationMetricName)
-      .withDescription(role.callDurationDescription)
-      .withUnit(CallDurationUnit)
-      .withExplicitBucketBoundaries(CallDurationBucketBoundaries)
-      .create
+  def callDurationHistogram[F[_] : FlatMap : MeterProvider](role: RpcRole): F[Histogram[F, Double]] =
+    MeterProvider[F]
+      .meter(InstrumentationScopeName)
+      .withVersion(BuildInfo.version)
+      .get
+      .flatMap {
+        _.histogram[Double](role.callDurationMetricName)
+          .withDescription(role.callDurationDescription)
+          .withUnit(CallDurationUnit)
+          .withExplicitBucketBoundaries(CallDurationBucketBoundaries)
+          .create
+      }
 }

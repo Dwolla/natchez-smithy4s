@@ -10,6 +10,7 @@ import munit.{CatsEffectSuite, ScalaCheckEffectSuite}
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalacheck.effect.PropF.forAllF
 import org.typelevel.otel4s.{Attribute, Attributes}
+import org.typelevel.otel4s.metrics.MeterProvider
 import org.typelevel.otel4s.sdk.metrics.data.{MetricData, MetricPoints, PointData}
 import org.typelevel.otel4s.sdk.testkit.metrics.MetricsTestkit
 
@@ -64,8 +65,7 @@ class AlgebraMetricsTest
     TestControl.executeEmbed {
       MetricsTestkit.inMemory[IO]().use { testkit =>
         for {
-          meter <- testkit.meterProvider.get("AlgebraMetricsTest")
-          instrumented <- AlgebraMetrics(impl, role)(implicitly, meter, implicitly)
+          instrumented <- AlgebraMetrics(impl, role)(implicitly, testkit.meterProvider, implicitly)
           a <- calls(instrumented)
           metrics <- testkit.collectMetrics
         } yield (a, histogramPoints(metrics, role.callDurationMetricName))
@@ -136,6 +136,24 @@ class AlgebraMetricsTest
     }
   }
 
+  test("durations are recorded under this library's instrumentation scope, versioned with the library") {
+    forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _]) =>
+      TestControl.executeEmbed {
+        MetricsTestkit.inMemory[IO]().use { testkit =>
+          for {
+            instrumented <- AlgebraMetrics(new ControlledTracingService(1.second, successfulResponse.pure[IO]), role)(implicitly, testkit.meterProvider, implicitly)
+            _ <- invoke(instrumented, operation)
+            metrics <- testkit.collectMetrics
+          } yield {
+            val scopes = metrics.filter(_.name == role.callDurationMetricName).map(_.instrumentationScope)
+            assertEquals(scopes.map(_.name), List("com.dwolla.metrics.smithy"))
+            assertEquals(scopes.map(_.version), List(BuildInfo.version.some))
+          }
+        }
+      }
+    }
+  }
+
   test("the role selects the metric the durations are recorded to") {
     forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _]) =>
       val otherMetric = role match {
@@ -145,8 +163,7 @@ class AlgebraMetricsTest
       TestControl.executeEmbed {
         MetricsTestkit.inMemory[IO]().use { testkit =>
           for {
-            meter <- testkit.meterProvider.get("AlgebraMetricsTest")
-            instrumented <- AlgebraMetrics(new ControlledTracingService(1.second, successfulResponse.pure[IO]), role)(implicitly, meter, implicitly)
+            instrumented <- AlgebraMetrics(new ControlledTracingService(1.second, successfulResponse.pure[IO]), role)(implicitly, testkit.meterProvider, implicitly)
             _ <- invoke(instrumented, operation)
             metrics <- testkit.collectMetrics
           } yield {
@@ -166,16 +183,15 @@ class AlgebraMetricsTest
     forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration) =>
       TestControl.executeEmbed {
         MetricsTestkit.inMemory[IO]().use { testkit =>
-          testkit.meterProvider.get("AlgebraMetricsTest").flatMap { implicit meter =>
-            for {
-              instrumented <- new ControlledTracingService(latency, successfulResponse.pure[IO]).withMetrics(role)
-              _ <- invoke(instrumented, operation)
-              metrics <- testkit.collectMetrics
-            } yield {
-              val points = histogramPoints(metrics, role.callDurationMetricName)
-              assertEquals(points.map(_.attributes), List(expectedAttributes(operation, None)))
-              assertEqualsDouble(points.flatMap(_.stats).map(_.sum).sum, latency.toUnit(SECONDS), 1e-9)
-            }
+          implicit val meterProvider: MeterProvider[IO] = testkit.meterProvider
+          for {
+            instrumented <- new ControlledTracingService(latency, successfulResponse.pure[IO]).withMetrics(role)
+            _ <- invoke(instrumented, operation)
+            metrics <- testkit.collectMetrics
+          } yield {
+            val points = histogramPoints(metrics, role.callDurationMetricName)
+            assertEquals(points.map(_.attributes), List(expectedAttributes(operation, None)))
+            assertEqualsDouble(points.flatMap(_.stats).map(_.sum).sum, latency.toUnit(SECONDS), 1e-9)
           }
         }
       }
