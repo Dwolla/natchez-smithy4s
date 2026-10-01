@@ -24,3 +24,13 @@ object StandInEnum {
       override def canEqual(that: Any): Boolean = that.isInstanceOf[StandInEnum]
     }
 }
+
+/** An anonymous `Product` that leaves `productPrefix` at its default, empty value. */
+object UnlabeledProduct {
+  val value: Product =
+    new Product {
+      override def productArity: Int = 0
+      override def productElement(n: Int): Any = throw new IndexOutOfBoundsException(n.toString)
+      override def canEqual(that: Any): Boolean = false
+    }
+}

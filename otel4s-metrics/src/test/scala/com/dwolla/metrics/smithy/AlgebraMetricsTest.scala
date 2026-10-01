@@ -110,6 +110,17 @@ class AlgebraMetricsTest extends AlgebraMetricsSuite {
     }
   }
 
+  test("an anonymous Product with an empty productPrefix records its class name, not a name ending in a dot") {
+    forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration) =>
+      // the anonymous class's index (`$$anon$1`, `$$anon$2`, …) is a compiler detail that differs between Scala versions
+      val anonymousClassName = UnlabeledProduct.value.getClass.getName
+      escapedRaise(role, operation, latency, UnlabeledProduct.value).map { case (_, points) =>
+        assert(anonymousClassName.startsWith("com.dwolla.metrics.smithy.UnlabeledProduct$$anon$"), anonymousClassName)
+        assertEquals(points.map(_.attributes), List(expectedAttributes(operation, anonymousClassName.some)))
+      }
+    }
+  }
+
   test("an exception merely shaped like cats-mtl's wrapper is not unwrapped") {
     forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration) =>
       val lookalike = com.example.lookalike.Submarine(DomainError.NotFound, new AnyRef)
