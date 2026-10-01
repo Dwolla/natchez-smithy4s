@@ -142,10 +142,20 @@ measurement has these attributes:
 
 A failed call's `error.type` is one of:
 
+- `canceled` if the call was canceled;
 - the Smithy shape ID of an error the operation declares, e.g. `com.dwolla.example.smithy#NotFound`;
 - otherwise, the fully-qualified class name of the error raised, e.g. `java.lang.IllegalStateException`
-  or, for a smithy4s client, `smithy4s.http.UnknownErrorResponse`;
-- `canceled` if the call was canceled.
+  or, for a smithy4s client, `smithy4s.http.UnknownErrorResponse`. Values that share one anonymous
+  class, like the simple cases of a Scala 3 `enum`, are named by their enclosing type and case instead,
+  e.g. `com.dwolla.example.FooError.NotFound`.
+
+An error raised through a [cats-mtl](https://typelevel.org/cats-mtl/) `Raise` (e.g. from
+`Handle.allowF`) that escapes an endpoint is reported as the raised error itself — its shape ID or
+type name, by the rules above — rather than as cats-mtl's internal wrapper.
+
+On Scala.js, recognizing that wrapper and naming enum cases both rely on runtime class names, which
+Scala.js keeps by default. If an application's linker rewrites them (its `runtimeClassNameMapper`
+semantics), `error.type` falls back to whatever class names the linker produces.
 
 **Instrumentation scope.** The histogram is recorded through a `Meter` this module obtains from the
 `MeterProvider`, with the instrumentation scope `com.dwolla.metrics.smithy` and this library's version.
@@ -153,6 +163,24 @@ natchez-tagless's `otel4s-tagless-metrics` records the same RPC metric with an i
 description, and buckets under its own scope, so in a service that uses both (say, for thrift and
 smithy4s endpoints) the two are directly comparable, told apart by `rpc.system.name`, and a query that
 aggregates by `rpc.system.name` combines both.
+
+**Using natchez-tagless's metrics module too.** Both modules' `withMetrics` syntaxes can be imported
+into the same file, and each call resolves to its own library. But `otel4s-tagless-metrics` defines its own
+`com.dwolla.metrics.otel4s.RpcRole`, so wildcard-importing both `com.dwolla.metrics.smithy._` and
+`com.dwolla.metrics.otel4s._` makes `RpcRole` ambiguous. Import each `RpcRole` by name instead, renaming
+to tell them apart:
+
+```scala
+import com.dwolla.metrics.otel4s.syntax._
+import com.dwolla.metrics.otel4s.{RpcRole => TaglessRpcRole, RpcService, RpcSystem}
+import com.dwolla.metrics.smithy.syntax._
+import com.dwolla.metrics.smithy.{RpcRole => SmithyRpcRole}
+
+// a smithy4s algebra
+fooService.withMetrics(SmithyRpcRole.Server)
+// a cats-tagless algebra
+barService.withMetrics(TaglessRpcRole.Client, RpcSystem("thrift"), RpcService("com.example.BarService"))
+```
 
 `withMetrics` returns `F[MyAlgebra[F]]` because creating the histogram is effectful, so it can't be
 chained directly with the tracing enhancements above the way they chain with each other — compose it

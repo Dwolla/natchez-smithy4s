@@ -6,26 +6,14 @@ import cats.syntax.all.*
 import com.example.tracing.*
 import com.example.tracing.TracingServiceOperation.*
 import com.dwolla.metrics.smithy.syntax.*
-import munit.{CatsEffectSuite, ScalaCheckEffectSuite}
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalacheck.effect.PropF.forAllF
-import org.typelevel.otel4s.{Attribute, Attributes}
 import org.typelevel.otel4s.metrics.MeterProvider
-import org.typelevel.otel4s.sdk.metrics.data.{MetricData, MetricPoints, PointData}
 import org.typelevel.otel4s.sdk.testkit.metrics.MetricsTestkit
 
 import scala.concurrent.duration.*
 
-class AlgebraMetricsTest
-  extends CatsEffectSuite
-    with ScalaCheckEffectSuite
-    with TracingServiceArbitraries {
-
-  private val successfulResponse = TracingResponse("id", 1, None)
-
-  private implicit val arbRpcRole: Arbitrary[RpcRole] = Arbitrary(Gen.oneOf(RpcRole.Server, RpcRole.Client))
-
-  private implicit val arbLatency: Arbitrary[FiniteDuration] = Arbitrary(Gen.chooseNum(0L, 30000L).map(_.millis))
+class AlgebraMetricsTest extends AlgebraMetricsSuite {
 
   /**
    * A failure paired with the `error.type` we expect for it on a given operation, written out
@@ -45,47 +33,6 @@ class AlgebraMetricsTest
       }: TracingServiceOperation[_, _, _, _, _] => String),
     )
   }
-
-  private def expectedRpcMethod(operation: TracingServiceOperation[_, _, _, _, _]): String =
-    operation match {
-      case _: GetStatus => "com.example.tracing.TracingService/GetStatus"
-      case _: ProcessRequest => "com.example.tracing.TracingService/ProcessRequest"
-    }
-
-  private def invoke(alg: TracingService[IO], operation: TracingServiceOperation[_, _, _, _, _]): IO[Any] =
-    TracingService.toPolyFunction(alg).apply(operation).widen[Any]
-
-  private def expectedAttributes(operation: TracingServiceOperation[_, _, _, _, _], errorType: Option[String]): Attributes =
-    Attributes.fromSpecific(
-      List[Attribute[_]](
-        Attribute("rpc.system.name", "smithy"),
-        Attribute("rpc.method", expectedRpcMethod(operation)),
-      ) ++ errorType.map(Attribute("error.type", _)).toList
-    )
-
-  /**
-   * Instruments `impl` for `role` against a fresh in-memory SDK, runs `calls` under virtual time,
-   * and returns the collected call-duration histogram points (plus whatever `calls` returned).
-   */
-  private def recordedPoints[A](role: RpcRole, impl: TracingService[IO])
-                               (calls: TracingService[IO] => IO[A]): IO[(A, List[PointData.Histogram])] =
-    TestControl.executeEmbed {
-      MetricsTestkit.inMemory[IO]().use { testkit =>
-        for {
-          instrumented <- AlgebraMetrics(impl, role)(implicitly, testkit.meterProvider, implicitly)
-          a <- calls(instrumented)
-          metrics <- testkit.collectMetrics
-        } yield (a, histogramPoints(metrics, role.callDurationMetricName))
-      }
-    }
-
-  private def histogramPoints(metrics: List[MetricData], name: String): List[PointData.Histogram] =
-    metrics.filter(_.name == name).flatMap { metric =>
-      metric.data match {
-        case histogram: MetricPoints.Histogram => histogram.points.toVector.toList
-        case _ => Nil
-      }
-    }
 
   test("a successful call records its duration in seconds, with the standard buckets and no error.type") {
     forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration) =>
@@ -114,6 +61,61 @@ class AlgebraMetricsTest
           assert(result.left.exists(_ eq error), s"expected the original error to propagate, got $result")
           assertEquals(points.map(_.attributes), List(expectedAttributes(operation, expectedErrorType(operation).some)))
           assertEqualsDouble(points.flatMap(_.stats).map(_.sum).sum, latency.toUnit(SECONDS), 1e-9)
+        }
+    }
+  }
+
+  private implicit val arbDomainError: Arbitrary[DomainError] = Arbitrary {
+    Gen.oneOf(Gen.const(DomainError.NotFound), Gen.alphaStr.map(DomainError.Invalid(_)))
+  }
+
+  /** The `error.type` we expect for a non-`Throwable` domain error, written out literally. */
+  private def expectedDomainErrorType(error: DomainError): String =
+    error match {
+      case DomainError.NotFound => "com.dwolla.metrics.smithy.DomainError$NotFound$"
+      case _: DomainError.Invalid => "com.dwolla.metrics.smithy.DomainError$Invalid"
+    }
+
+  test("an escaped cats-mtl raise records the raised error's type, never cats-mtl's wrapper, and still reaches its handler") {
+    forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration, error: DomainError) =>
+      val expectedErrorType = expectedDomainErrorType(error)
+      escapedRaise(role, operation, latency, error).map { case (recovered, points) =>
+        assertEquals(recovered.left.toOption, error.some)
+        assertEquals(points.map(_.attributes), List(expectedAttributes(operation, expectedErrorType.some)))
+      }
+    }
+  }
+
+  test("an escaped cats-mtl raise of an error the operation declares records its Smithy shape ID") {
+    forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration, message: String) =>
+      val expectedErrorType = operation match {
+        case _: ProcessRequest => "com.example.tracing#TracingError"
+        case _: GetStatus => "com.example.tracing.TracingError"
+      }
+      escapedRaise(role, operation, latency, TracingError(message)).map { case (_, points) =>
+        assertEquals(points.map(_.attributes), List(expectedAttributes(operation, expectedErrorType.some)))
+      }
+    }
+  }
+
+  test("errors sharing one anonymous class, like a Scala 3 enum's simple cases, record their own names") {
+    forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration) =>
+      for {
+        notFound <- escapedRaise(role, operation, latency, StandInEnum.NotFound)
+        conflict <- escapedRaise(role, operation, latency, StandInEnum.Conflict)
+      } yield {
+        assertEquals(notFound._2.map(_.attributes), List(expectedAttributes(operation, "com.dwolla.metrics.smithy.StandInEnum.NotFound".some)))
+        assertEquals(conflict._2.map(_.attributes), List(expectedAttributes(operation, "com.dwolla.metrics.smithy.StandInEnum.Conflict".some)))
+      }
+    }
+  }
+
+  test("an exception merely shaped like cats-mtl's wrapper is not unwrapped") {
+    forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration) =>
+      val lookalike = com.example.lookalike.Submarine(DomainError.NotFound, new AnyRef)
+      recordedPoints(role, new ControlledTracingService(latency, lookalike.raiseError[IO, TracingResponse]))(invoke(_, operation).attempt)
+        .map { case (_, points) =>
+          assertEquals(points.map(_.attributes), List(expectedAttributes(operation, "com.example.lookalike.Submarine".some)))
         }
     }
   }

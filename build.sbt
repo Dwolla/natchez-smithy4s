@@ -78,6 +78,7 @@ lazy val `otel4s-smithy4s-metrics` = crossProject(JVMPlatform, JSPlatform)
         "org.typelevel" %%% "otel4s-core-metrics" % otel4sVersion,
         "org.typelevel" %%% "otel4s-semconv-metrics-experimental" % otel4sVersion % Test,
         "org.typelevel" %%% "otel4s-sdk-metrics-testkit" % "0.19.4" % Test,
+        "org.typelevel" %%% "cats-mtl" % "1.7.0" % Test,
         "org.typelevel" %%% "cats-effect-testkit" % "3.7.1" % Test,
         "org.scalameta" %%% "munit" % "1.3.6" % Test,
         "org.scalameta" %%% "munit-scalacheck" % "1.3.1" % Test,

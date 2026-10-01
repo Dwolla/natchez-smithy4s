@@ -17,9 +17,11 @@ object AlgebraMetrics {
    *
    * Each measurement carries `rpc.system.name = "smithy"` and
    * `rpc.method = "<namespace>.<Service>/<Operation>"`. Failed calls also carry `error.type`:
+   *  - `"canceled"` if the call was canceled;
    *  - the Smithy shape ID (e.g. `"com.example#NotFound"`) of an error the operation declares;
-   *  - otherwise, the fully-qualified class name of the error raised;
-   *  - `"canceled"` if the call was canceled.
+   *  - otherwise, the fully-qualified class name of the error raised, except that a Scala 3 `enum`'s
+   *    simple cases are named like `"com.example.FooError.NotFound"`.
+   * A cats-mtl raise that escapes the call is reported as the raised error, not cats-mtl's wrapper.
    * Errors and cancellation propagate unchanged.
    *
    * The histogram is created from a `Meter` this library obtains from `MeterProvider[F]`, named

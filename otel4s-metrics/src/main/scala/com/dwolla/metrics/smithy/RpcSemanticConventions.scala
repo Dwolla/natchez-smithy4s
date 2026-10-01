@@ -33,16 +33,27 @@ private[smithy] object RpcSemanticConventions {
     Attribute(RpcMethod, s"${serviceId.namespace}.${serviceId.name}/$operationName")
 
   /**
-   * `error.type` for a call to an endpoint whose declared errors are `modeledErrors`: the Smithy
-   * shape ID of a declared error, the class name of any other error, or `canceled`.
+   * `error.type` for a call to an endpoint whose declared errors are `modeledErrors`: `canceled` for
+   * a canceled call; otherwise, after unwrapping an escaped cats-mtl raise, the Smithy shape ID of a
+   * declared error, or else the [[ErrorTypeName]] of the error.
    */
   def errorType[E](modeledErrors: Option[ErrorSchema[E]])(exitCase: Resource.ExitCase): Option[Attribute[String]] =
     exitCase match {
       case Resource.ExitCase.Succeeded => None
-      case Resource.ExitCase.Errored(e) =>
-        Attribute(ErrorType, modeledErrorShapeId(modeledErrors, e).fold(e.getClass.getName)(_.show)).some
+      case Resource.ExitCase.Errored(e) => Attribute(ErrorType, failedErrorType(modeledErrors, e)).some
       case Resource.ExitCase.Canceled => Attribute(ErrorType, CanceledErrorType).some
     }
+
+  private def failedErrorType[E](modeledErrors: Option[ErrorSchema[E]], error: Throwable): String = {
+    val raised: Any = error match {
+      case EscapedRaise(raisedError) => raisedError
+      case _ => error
+    }
+    raised match {
+      case throwable: Throwable => modeledErrorShapeId(modeledErrors, throwable).fold(ErrorTypeName(throwable))(_.show)
+      case other => ErrorTypeName(other)
+    }
+  }
 
   private def modeledErrorShapeId[E](modeledErrors: Option[ErrorSchema[E]], error: Throwable): Option[ShapeId] =
     modeledErrors.flatMap { errorSchema =>
