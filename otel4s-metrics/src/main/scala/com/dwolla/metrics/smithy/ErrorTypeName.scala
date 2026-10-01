@@ -11,7 +11,14 @@ package com.dwolla.metrics.smithy
 private[smithy] object ErrorTypeName {
   private val AnonymousClassMarker = "$$anon$"
 
-  def apply(error: Any): String = {
+  /** The name for a raised `null` (e.g. an escaped `raise(null)`), matching `String.valueOf(null)`; no class can be named `null`. */
+  private val NullErrorName = "null"
+
+  def apply(error: Any): String =
+    if (error == null) NullErrorName
+    else nonNullErrorTypeName(error)
+
+  private def nonNullErrorTypeName(error: Any): String = {
     val className = error.getClass.getName
     val anonymousAt = className.indexOf(AnonymousClassMarker)
     error match {

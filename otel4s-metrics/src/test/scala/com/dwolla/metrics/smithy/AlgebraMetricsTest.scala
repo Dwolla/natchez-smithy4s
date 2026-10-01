@@ -121,6 +121,15 @@ class AlgebraMetricsTest extends AlgebraMetricsSuite {
     }
   }
 
+  test("an escaped cats-mtl raise of null records error.type null and still reaches its handler") {
+    forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration) =>
+      escapedRaise(role, operation, latency, null: String).map { case (recovered, points) =>
+        assertEquals(recovered, Left(null))
+        assertEquals(points.map(_.attributes), List(expectedAttributes(operation, "null".some)))
+      }
+    }
+  }
+
   test("an exception merely shaped like cats-mtl's wrapper is not unwrapped") {
     forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration) =>
       val lookalike = com.example.lookalike.Submarine(DomainError.NotFound, new AnyRef)

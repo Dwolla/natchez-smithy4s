@@ -151,7 +151,8 @@ A failed call's `error.type` is one of:
 
 An error raised through a [cats-mtl](https://typelevel.org/cats-mtl/) `Raise` (e.g. from
 `Handle.allowF`) that escapes an endpoint is reported as the raised error itself — its shape ID or
-type name, by the rules above — rather than as cats-mtl's internal wrapper.
+type name, by the rules above — rather than as cats-mtl's internal wrapper. An escaped raise of `null` is
+reported as `null`.
 
 On Scala.js, recognizing that wrapper and naming enum cases both rely on runtime class names, which
 Scala.js keeps by default. If an application's linker rewrites them (its `runtimeClassNameMapper`
