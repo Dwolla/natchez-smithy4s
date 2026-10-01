@@ -1,5 +1,6 @@
 package com.dwolla.metrics.smithy
 
+import cats.syntax.all.*
 import com.example.tracing.TracingServiceOperation
 import org.scalacheck.effect.PropF.forAllF
 
@@ -16,8 +17,8 @@ class EnumErrorTypeTest extends AlgebraMetricsSuite {
         notFound <- escapedRaise(role, operation, latency, FooError.NotFound)
         conflict <- escapedRaise(role, operation, latency, FooError.Conflict)
       } yield {
-        assertEquals(notFound._2.map(_.attributes), List(expectedAttributes(operation, Some("com.dwolla.metrics.smithy.FooError.NotFound"))))
-        assertEquals(conflict._2.map(_.attributes), List(expectedAttributes(operation, Some("com.dwolla.metrics.smithy.FooError.Conflict"))))
+        assertEquals(notFound._2.map(_.attributes), List(expectedAttributes(operation, "com.dwolla.metrics.smithy.FooError.NotFound".some)))
+        assertEquals(conflict._2.map(_.attributes), List(expectedAttributes(operation, "com.dwolla.metrics.smithy.FooError.Conflict".some)))
       }
     }
   }
