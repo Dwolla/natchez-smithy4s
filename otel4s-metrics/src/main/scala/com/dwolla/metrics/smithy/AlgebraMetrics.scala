@@ -20,7 +20,8 @@ object AlgebraMetrics {
    *  - `"canceled"` if the call was canceled;
    *  - the Smithy shape ID (e.g. `"com.example#NotFound"`) of an error the operation declares;
    *  - otherwise, the fully-qualified class name of the error raised, except that a Scala 3 `enum`'s
-   *    simple cases are named like `"com.example.FooError.NotFound"`.
+   *    simple cases are named after the enum's class, a `$`, and the case, the same way the enum's
+   *    parameterized cases' classes are named.
    * A cats-mtl raise that escapes the call is reported as the raised error, not cats-mtl's wrapper.
    * Errors and cancellation propagate unchanged.
    *

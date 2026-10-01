@@ -147,7 +147,8 @@ A failed call's `error.type` is one of:
 - otherwise, the fully-qualified class name of the error raised, e.g. `java.lang.IllegalStateException`
   or, for a smithy4s client, `smithy4s.http.UnknownErrorResponse`. The simple cases of a Scala 3
   `enum`, which all share one anonymous class, are named by their enum and case instead, e.g.
-  `com.dwolla.example.FooError.NotFound`.
+  `com.dwolla.example.FooError$NotFound`, matching how parameterized cases such as
+  `com.dwolla.example.FooError$Invalid` are named.
 
 An error raised through a [cats-mtl](https://typelevel.org/cats-mtl/) `Raise` (e.g. from
 `Handle.allowF`) that escapes an endpoint is reported as the raised error itself — its shape ID or
