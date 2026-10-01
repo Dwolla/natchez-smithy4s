@@ -45,6 +45,12 @@ lazy val `natchez-smithy4s` = crossProject(JVMPlatform, JSPlatform)
       )
     },
   )
+  .settings(Smithy4sCodegenPlugin.defaultSettings(Test))
+  .settings(
+    Test / smithy4sInputDirs := List(
+      baseDirectory.value.getParentFile / "src" / "test" / "smithy",
+    ),
+  )
   .enablePlugins(Smithy4sCodegenPlugin)
   .dependsOn(`testing-support` % Test)
 
