@@ -1,5 +1,7 @@
 package com.dwolla.metrics.smithy
 
+import scala.util.control.NoStackTrace
+
 /** A domain error type that isn't a `Throwable`, as a service would raise through cats-mtl's `Raise`. */
 sealed trait DomainError
 object DomainError {
@@ -8,21 +10,40 @@ object DomainError {
 }
 
 /**
- * Stands in for a Scala 3 enum on every Scala version: like an enum's simple cases, its values share
- * one anonymous runtime class and differ only in `productPrefix`.
+ * Looks like a Scala 3 enum's simple cases (its values share one anonymous runtime class and differ
+ * only in `productPrefix`) but isn't a `scala.reflect.Enum`, so its values keep their class name.
  */
-sealed abstract class StandInEnum extends Product with Serializable
-object StandInEnum {
-  val NotFound: StandInEnum = simpleCase("NotFound")
-  val Conflict: StandInEnum = simpleCase("Conflict")
+sealed abstract class EnumLookalike extends Product with Serializable
+object EnumLookalike {
+  val NotFound: EnumLookalike = simpleCase("NotFound")
+  val Conflict: EnumLookalike = simpleCase("Conflict")
 
-  private def simpleCase(name: String): StandInEnum =
-    new StandInEnum {
+  private def simpleCase(name: String): EnumLookalike =
+    new EnumLookalike {
       override def productPrefix: String = name
       override def productArity: Int = 0
       override def productElement(n: Int): Any = throw new IndexOutOfBoundsException(n.toString)
-      override def canEqual(that: Any): Boolean = that.isInstanceOf[StandInEnum]
+      override def canEqual(that: Any): Boolean = that.isInstanceOf[EnumLookalike]
     }
+}
+
+/** A plain exception, thrown in [[ErrorCreator]] as an anonymous subclass. */
+case class PlainError(message: String) extends RuntimeException(message)
+
+object ErrorCreator {
+  def withoutStackTrace(message: String): Throwable = new PlainError(message) with NoStackTrace
+}
+
+/** Holds an exception whose class is nested inside an anonymous class. */
+trait NestedErrorBox {
+  def error: Throwable
+}
+object AnonymousHolder {
+  val nestedError: Throwable =
+    new NestedErrorBox {
+      final class LocalError(message: String) extends RuntimeException(message)
+      override val error: Throwable = new LocalError("nested")
+    }.error
 }
 
 /** An anonymous `Product` that leaves `productPrefix` at its default, empty value. */

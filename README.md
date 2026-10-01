@@ -145,9 +145,9 @@ A failed call's `error.type` is one of:
 - `canceled` if the call was canceled;
 - the Smithy shape ID of an error the operation declares, e.g. `com.dwolla.example.smithy#NotFound`;
 - otherwise, the fully-qualified class name of the error raised, e.g. `java.lang.IllegalStateException`
-  or, for a smithy4s client, `smithy4s.http.UnknownErrorResponse`. Values that share one anonymous
-  class, like the simple cases of a Scala 3 `enum`, are named by their enclosing type and case instead,
-  e.g. `com.dwolla.example.FooError.NotFound`.
+  or, for a smithy4s client, `smithy4s.http.UnknownErrorResponse`. The simple cases of a Scala 3
+  `enum`, which all share one anonymous class, are named by their enum and case instead, e.g.
+  `com.dwolla.example.FooError.NotFound`.
 
 An error raised through a [cats-mtl](https://typelevel.org/cats-mtl/) `Raise` (e.g. from
 `Handle.allowF`) that escapes an endpoint is reported as the raised error itself — its shape ID or

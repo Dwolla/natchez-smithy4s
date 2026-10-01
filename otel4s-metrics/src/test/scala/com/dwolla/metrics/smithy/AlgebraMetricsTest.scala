@@ -98,15 +98,41 @@ class AlgebraMetricsTest extends AlgebraMetricsSuite {
     }
   }
 
-  test("errors sharing one anonymous class, like a Scala 3 enum's simple cases, record their own names") {
+  test("values that share one anonymous class but aren't a Scala 3 enum keep their class name") {
     forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration) =>
+      // the anonymous class's index (`$$anon$1`, `$$anon$2`, …) is a compiler detail that differs between Scala versions
+      val anonymousClassName = EnumLookalike.NotFound.getClass.getName
       for {
-        notFound <- escapedRaise(role, operation, latency, StandInEnum.NotFound)
-        conflict <- escapedRaise(role, operation, latency, StandInEnum.Conflict)
+        notFound <- escapedRaise(role, operation, latency, EnumLookalike.NotFound)
+        conflict <- escapedRaise(role, operation, latency, EnumLookalike.Conflict)
       } yield {
-        assertEquals(notFound._2.map(_.attributes), List(expectedAttributes(operation, "com.dwolla.metrics.smithy.StandInEnum.NotFound".some)))
-        assertEquals(conflict._2.map(_.attributes), List(expectedAttributes(operation, "com.dwolla.metrics.smithy.StandInEnum.Conflict".some)))
+        assert(anonymousClassName.startsWith("com.dwolla.metrics.smithy.EnumLookalike$$anon$"), anonymousClassName)
+        assertEquals(notFound._2.map(_.attributes), List(expectedAttributes(operation, anonymousClassName.some)))
+        assertEquals(conflict._2.map(_.attributes), List(expectedAttributes(operation, anonymousClassName.some)))
       }
+    }
+  }
+
+  test("an exception thrown as an anonymous subclass records that subclass's class name") {
+    forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration, message: String) =>
+      val error = ErrorCreator.withoutStackTrace(message)
+      val anonymousClassName = error.getClass.getName
+      recordedPoints(role, new ControlledTracingService(latency, error.raiseError[IO, TracingResponse]))(invoke(_, operation).attempt)
+        .map { case (_, points) =>
+          assert(anonymousClassName.startsWith("com.dwolla.metrics.smithy.ErrorCreator$$anon$"), anonymousClassName)
+          assertEquals(points.map(_.attributes), List(expectedAttributes(operation, anonymousClassName.some)))
+        }
+    }
+  }
+
+  test("an exception whose class is nested inside an anonymous class records its full class name") {
+    forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration) =>
+      val nestedClassName = AnonymousHolder.nestedError.getClass.getName
+      recordedPoints(role, new ControlledTracingService(latency, AnonymousHolder.nestedError.raiseError[IO, TracingResponse]))(invoke(_, operation).attempt)
+        .map { case (_, points) =>
+          assert(nestedClassName.startsWith("com.dwolla.metrics.smithy.AnonymousHolder$$anon$") && nestedClassName.endsWith("$LocalError"), nestedClassName)
+          assertEquals(points.map(_.attributes), List(expectedAttributes(operation, nestedClassName.some)))
+        }
     }
   }
 
