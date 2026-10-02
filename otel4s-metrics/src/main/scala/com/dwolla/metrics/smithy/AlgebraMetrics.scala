@@ -3,7 +3,7 @@ package com.dwolla.metrics.smithy
 import cats.effect.kernel.{MonadCancelThrow, Resource}
 import cats.syntax.all.*
 import org.typelevel.otel4s.Attribute
-import org.typelevel.otel4s.metrics.Meter
+import org.typelevel.otel4s.metrics.MeterProvider
 import smithy4s.*
 import smithy4s.kinds.*
 
@@ -16,22 +16,30 @@ object AlgebraMetrics {
    * `rpc.client.call.duration` histogram (chosen by `role`).
    *
    * Each measurement carries `rpc.system.name = "smithy"` and
-   * `rpc.method = "<namespace>.<Service>/<Operation>"`. Failed calls also carry `error.type`: the
-   * fully-qualified class name of the error raised, or `"canceled"` if the call was canceled.
+   * `rpc.method = "<namespace>.<Service>/<Operation>"`. Failed calls also carry `error.type`:
+   *  - `"canceled"` if the call was canceled;
+   *  - the Smithy shape ID (e.g. `"com.example#NotFound"`) of an error the operation declares;
+   *  - otherwise, the fully-qualified class name of the error raised, except that a Scala 3 `enum`'s
+   *    simple cases are named after the enum's class, a `$`, and the case, the same way the enum's
+   *    parameterized cases' classes are named.
+   * A cats-mtl raise that escapes the call is reported as the raised error, not cats-mtl's wrapper.
    * Errors and cancellation propagate unchanged.
    *
-   * Pass a `Meter` named for this library (its instrumentation scope) rather than one shared
-   * application-wide `Meter`; natchez-tagless's `otel4s-tagless-metrics` records the same metric
-   * with an identical descriptor, and separate scopes keep the two from conflicting. See the
-   * README's "Choosing a Meter".
+   * The histogram is created from a `Meter` this library obtains from `MeterProvider[F]`, named
+   * for its instrumentation scope, `com.dwolla.metrics.smithy`, and versioned with the library.
+   * natchez-tagless's `otel4s-tagless-metrics` records the same metric with an identical descriptor
+   * under its own scope, so the two never conflict.
+   *
+   * To extend this API, add overloads rather than default arguments: a method with defaults can't
+   * gain a parameter, or a same-named sibling with defaults, without breaking binary compatibility.
    *
    * @param alg  Original algebra implementation to be instrumented.
    * @param role Whether `alg` is a server implementation or a client.
    * @param S    The `Service` instance for the algebra.
-   * @return The histogram is created from `Meter[F]` when the returned effect runs; it yields the
-   *         instrumented algebra, which shares that one histogram across all its endpoints.
+   * @return The histogram is created when the returned effect runs; it yields the instrumented
+   *         algebra, which shares that one histogram across all its endpoints.
    */
-  def apply[Alg[_[_, _, _, _, _]], F[_] : MonadCancelThrow : Meter](alg: Alg[Kind1[F]#toKind5],
+  def apply[Alg[_[_, _, _, _, _]], F[_] : MonadCancelThrow : MeterProvider](alg: Alg[Kind1[F]#toKind5],
                                                                     role: RpcRole)
                                                                    (implicit S: Service[Alg]): F[Alg[Kind1[F]#toKind5]] =
     RpcSemanticConventions.callDurationHistogram[F](role).map { callDuration =>
@@ -41,7 +49,7 @@ object AlgebraMetrics {
         override def apply[I, E, O, SI, SO](fa: S.Endpoint[I, E, O, SI, SO]): I => F[O] = {
           val rpcMethod = RpcSemanticConventions.rpcMethod(S.id, fa.name)
           val attributesFor: Resource.ExitCase => List[Attribute[_]] = exitCase =>
-            List[Attribute[_]](RpcSemanticConventions.SmithyRpcSystem, rpcMethod) ++ RpcSemanticConventions.errorType(exitCase).toList
+            List[Attribute[_]](RpcSemanticConventions.SmithyRpcSystem, rpcMethod) ++ RpcSemanticConventions.errorType(fa.error)(exitCase).toList
 
           (i: I) =>
             callDuration

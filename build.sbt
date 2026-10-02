@@ -69,12 +69,16 @@ lazy val `otel4s-smithy4s-metrics` = crossProject(JVMPlatform, JSPlatform)
   .in(file("otel4s-metrics"))
   .settings(
     tlVersionIntroduced := Map("2.13" -> "0.1.3", "3" -> "0.1.3"),
+    buildInfoKeys := Seq[BuildInfoKey](version),
+    buildInfoPackage := "com.dwolla.metrics.smithy",
+    buildInfoOptions += BuildInfoOption.PackagePrivate,
     libraryDependencies ++= {
       Seq(
         "com.disneystreaming.smithy4s" %%% "smithy4s-core" % smithy4sVersion.value,
         "org.typelevel" %%% "otel4s-core-metrics" % otel4sVersion,
         "org.typelevel" %%% "otel4s-semconv-metrics-experimental" % otel4sVersion % Test,
         "org.typelevel" %%% "otel4s-sdk-metrics-testkit" % "0.19.4" % Test,
+        "org.typelevel" %%% "cats-mtl" % "1.7.0" % Test,
         "org.typelevel" %%% "cats-effect-testkit" % "3.7.1" % Test,
         "org.scalameta" %%% "munit" % "1.3.6" % Test,
         "org.scalameta" %%% "munit-scalacheck" % "1.3.1" % Test,
@@ -84,6 +88,7 @@ lazy val `otel4s-smithy4s-metrics` = crossProject(JVMPlatform, JSPlatform)
       )
     },
   )
+  .enablePlugins(BuildInfoPlugin)
   .dependsOn(`testing-support` % Test)
 
 lazy val root = tlCrossRootProject

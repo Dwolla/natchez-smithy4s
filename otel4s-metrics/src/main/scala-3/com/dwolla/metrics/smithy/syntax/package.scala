@@ -2,7 +2,7 @@ package com.dwolla.metrics.smithy
 package syntax
 
 import cats.effect.kernel.MonadCancelThrow
-import org.typelevel.otel4s.metrics.Meter
+import org.typelevel.otel4s.metrics.MeterProvider
 import smithy4s.Service
 import smithy4s.kinds.Kind1
 
@@ -15,6 +15,6 @@ extension [Alg[_[_, _, _, _, _]], F[_]](alg: Alg[Kind1[F]#toKind5]) {
    * @return An effect that creates the histogram and yields the instrumented algebra.
    */
   def withMetrics(role: RpcRole)
-                 (using MonadCancelThrow[F], Meter[F], Service[Alg]): F[Alg[Kind1[F]#toKind5]] =
+                 (using MonadCancelThrow[F], MeterProvider[F], Service[Alg]): F[Alg[Kind1[F]#toKind5]] =
     AlgebraMetrics(alg, role)
 }

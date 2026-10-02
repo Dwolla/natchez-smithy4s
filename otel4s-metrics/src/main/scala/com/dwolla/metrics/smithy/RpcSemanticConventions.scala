@@ -1,10 +1,12 @@
 package com.dwolla.metrics.smithy
 
+import cats.FlatMap
 import cats.effect.kernel.Resource
 import cats.syntax.all.*
 import org.typelevel.otel4s.{Attribute, AttributeKey}
-import org.typelevel.otel4s.metrics.{BucketBoundaries, Histogram, Meter}
+import org.typelevel.otel4s.metrics.{BucketBoundaries, Histogram, MeterProvider}
 import smithy4s.ShapeId
+import smithy4s.schema.ErrorSchema
 
 /**
  * The subset of the OpenTelemetry RPC semantic conventions this library emits. These are
@@ -13,6 +15,9 @@ import smithy4s.ShapeId
  * checks them against that module.
  */
 private[smithy] object RpcSemanticConventions {
+  /** The OpenTelemetry instrumentation scope this library records its metrics under. */
+  val InstrumentationScopeName: String = "com.dwolla.metrics.smithy"
+
   val RpcSystemName: AttributeKey[String] = AttributeKey("rpc.system.name")
   val RpcMethod: AttributeKey[String] = AttributeKey("rpc.method")
   val ErrorType: AttributeKey[String] = AttributeKey("error.type")
@@ -27,18 +32,44 @@ private[smithy] object RpcSemanticConventions {
   def rpcMethod(serviceId: ShapeId, operationName: String): Attribute[String] =
     Attribute(RpcMethod, s"${serviceId.namespace}.${serviceId.name}/$operationName")
 
-  def errorType(exitCase: Resource.ExitCase): Option[Attribute[String]] =
+  /**
+   * `error.type` for a call to an endpoint whose declared errors are `modeledErrors`: `canceled` for
+   * a canceled call; otherwise, after unwrapping an escaped cats-mtl raise, the Smithy shape ID of a
+   * declared error, or else the [[ErrorTypeName]] of the error.
+   */
+  def errorType[E](modeledErrors: Option[ErrorSchema[E]])(exitCase: Resource.ExitCase): Option[Attribute[String]] =
     exitCase match {
       case Resource.ExitCase.Succeeded => None
-      case Resource.ExitCase.Errored(e) => Attribute(ErrorType, e.getClass.getName).some
+      case Resource.ExitCase.Errored(e) => Attribute(ErrorType, failedErrorType(modeledErrors, e)).some
       case Resource.ExitCase.Canceled => Attribute(ErrorType, CanceledErrorType).some
     }
 
-  def callDurationHistogram[F[_] : Meter](role: RpcRole): F[Histogram[F, Double]] =
-    Meter[F]
-      .histogram[Double](role.callDurationMetricName)
-      .withDescription(role.callDurationDescription)
-      .withUnit(CallDurationUnit)
-      .withExplicitBucketBoundaries(CallDurationBucketBoundaries)
-      .create
+  private def failedErrorType[E](modeledErrors: Option[ErrorSchema[E]], error: Throwable): String = {
+    val raised: Any = error match {
+      case EscapedRaise(raisedError) => raisedError
+      case _ => error
+    }
+    raised match {
+      case throwable: Throwable => modeledErrorShapeId(modeledErrors, throwable).fold(ErrorTypeName(throwable))(_.show)
+      case other => ErrorTypeName(other)
+    }
+  }
+
+  private def modeledErrorShapeId[E](modeledErrors: Option[ErrorSchema[E]], error: Throwable): Option[ShapeId] =
+    modeledErrors.flatMap { errorSchema =>
+      errorSchema.liftError(error).map(e => errorSchema.alternatives(errorSchema.ordinal(e)).schema.shapeId)
+    }
+
+  def callDurationHistogram[F[_] : FlatMap : MeterProvider](role: RpcRole): F[Histogram[F, Double]] =
+    MeterProvider[F]
+      .meter(InstrumentationScopeName)
+      .withVersion(BuildInfo.version)
+      .get
+      .flatMap {
+        _.histogram[Double](role.callDurationMetricName)
+          .withDescription(role.callDurationDescription)
+          .withUnit(CallDurationUnit)
+          .withExplicitBucketBoundaries(CallDurationBucketBoundaries)
+          .create
+      }
 }
