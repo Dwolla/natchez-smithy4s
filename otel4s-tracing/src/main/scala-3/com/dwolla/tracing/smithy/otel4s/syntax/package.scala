@@ -30,23 +30,27 @@ extension [Alg[_[_, _, _, _, _]], F[_]](alg: Alg[Kind1[F]#toKind5]) {
     AlgebraInstrumentationWithOutputs(alg)
 }
 
-/** The same syntax on an algebra inside `F`, so wrappers chain without `flatMap`. */
+/**
+ * The same syntax on an algebra inside `F`, so wrappers chain without `flatMap`.
+ *
+ * Each method has an explicit binary name, because it and its counterpart on `Alg` can erase to the same signature.
+ */
 extension [Alg[_[_, _, _, _, _]], F[_]](falg: F[Alg[Kind1[F]#toKind5]]) {
+  @targetName("withSimpleInstrumentationOnEffectfulAlgebra")
   def withSimpleInstrumentation()
                                (using FlatMap[F], TracerProvider[F], Service[Alg]): F[Alg[Kind1[F]#toKind5]] =
     falg.flatMap(SimpleAlgebraInstrumentation(_))
 
+  @targetName("withSimpleInstrumentationOfKindOnEffectfulAlgebra")
   def withSimpleInstrumentation(spanKind: SpanKind)
                                (using FlatMap[F], TracerProvider[F], Service[Alg]): F[Alg[Kind1[F]#toKind5]] =
     falg.flatMap(SimpleAlgebraInstrumentation(_, spanKind))
 
-  // the two extension blocks' methods would otherwise erase to the same signature
   @targetName("withTracedInputsOnEffectfulAlgebra")
   def withTracedInputs()
                       (using Monad[F], TracerProvider[F], Service[Alg]): F[Alg[Kind1[F]#toKind5]] =
     falg.flatMap(AlgebraInstrumentationWithInputs(_))
 
-  // the two extension blocks' methods would otherwise erase to the same signature
   @targetName("withTracedOutputsOnEffectfulAlgebra")
   def withTracedOutputs()
                        (using Monad[F], TracerProvider[F], Service[Alg]): F[Alg[Kind1[F]#toKind5]] =
