@@ -97,6 +97,46 @@ lazy val `otel4s-smithy4s-metrics` = crossProject(JVMPlatform, JSPlatform)
   .enablePlugins(BuildInfoPlugin)
   .dependsOn(`testing-support` % Test)
 
+lazy val `otel4s-smithy4s` = crossProject(JVMPlatform, JSPlatform)
+  .crossType(CrossType.Pure)
+  .in(file("otel4s-tracing"))
+  .settings(
+    tlVersionIntroduced := Map("2.13" -> "0.1.4", "3" -> "0.1.4"),
+    Compile / smithy4sInputDirs := List(
+      baseDirectory.value.getParentFile / "src" / "main" / "smithy",
+    ),
+    buildInfoKeys := Seq[BuildInfoKey](version),
+    buildInfoPackage := "com.dwolla.tracing.smithy.otel4s",
+    buildInfoOptions += BuildInfoOption.PackagePrivate,
+    libraryDependencies ++= {
+      Seq(
+        "com.disneystreaming.smithy4s" %%% "smithy4s-core" % smithy4sVersion.value,
+        "org.typelevel" %%% "otel4s-core-trace" % otel4sVersion,
+        "org.typelevel" %%% "otel4s-semconv" % otel4sVersion,
+        "com.dwolla" %%% "otel4s-tagless" % "0.2.7",
+        "com.dwolla" %%% "tagless-core" % "0.2.7",
+        "org.typelevel" %%% "otel4s-sdk-trace-testkit" % "0.19.4" % Test,
+        "org.typelevel" %%% "cats-mtl" % "1.7.0" % Test,
+        "org.scalameta" %%% "munit" % "1.3.6" % Test,
+        "org.scalameta" %%% "munit-scalacheck" % "1.3.1" % Test,
+        "org.typelevel" %%% "munit-cats-effect" % "2.2.1" % Test,
+        "org.typelevel" %%% "scalacheck-effect" % "2.1.0" % Test,
+        "org.typelevel" %%% "scalacheck-effect-munit" % "2.1.0" % Test,
+      )
+    },
+  )
+  .jvmSettings(
+    libraryDependencies += "org.typelevel" %% "otel4s-oteljava-trace-testkit" % otel4sVersion % Test,
+  )
+  .settings(Smithy4sCodegenPlugin.defaultSettings(Test))
+  .settings(
+    Test / smithy4sInputDirs := List(
+      baseDirectory.value.getParentFile / "src" / "test" / "smithy",
+    ),
+  )
+  .enablePlugins(Smithy4sCodegenPlugin, BuildInfoPlugin)
+  .dependsOn(`testing-support` % Test)
+
 lazy val root = tlCrossRootProject
-  .aggregate(`natchez-smithy4s`, `otel4s-smithy4s-metrics`)
+  .aggregate(`natchez-smithy4s`, `otel4s-smithy4s-metrics`, `otel4s-smithy4s`)
   .enablePlugins(NoPublishPlugin)
