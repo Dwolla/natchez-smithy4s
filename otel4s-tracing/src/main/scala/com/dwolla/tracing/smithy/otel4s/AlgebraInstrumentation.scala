@@ -10,8 +10,10 @@ object SimpleAlgebraInstrumentation {
   /**
    * Wraps an algebra so that every call to one of its endpoints runs in a new child span named
    * `<Service>.<Operation>`, carrying `code.function.name` with the same value. A failed call records status ERROR,
-   * `error.type` (the Smithy shape ID of an error the operation declares, otherwise the error's class name), and an
-   * exception event. A canceled call records status ERROR "canceled" and `error.type = canceled`.
+   * `error.type` (the Smithy shape ID of an error the operation declares, otherwise the error's type name: its class
+   * name, except that a Scala 3 enum case is named after its enum), and an exception event. A cats-mtl raise that
+   * escaped the call records status ERROR and `error.type`, with no exception event. A canceled call records status
+   * ERROR "canceled" and `error.type = canceled`.
    *
    * The tracer is obtained from `TracerProvider[F]` once, when the returned effect runs, under the instrumentation
    * scope `com.dwolla.tracing.smithy.otel4s` (versioned).

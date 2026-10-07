@@ -138,7 +138,11 @@ annotated shape's companion, so the shape can be a parameter or return value of 
 With `redacted`, the value is recorded as that string and never read.
 
 Moving a project from natchez to otel4s means changing the `use` line in its annotation files, from
-`com.dwolla.tracing.smithy#traceable` to `com.dwolla.tracing.smithy.otel4s#traceable`. Each backend also honors the
+`com.dwolla.tracing.smithy#traceable` to `com.dwolla.tracing.smithy.otel4s#traceable`. In Scala, also swap the syntax
+import from `com.dwolla.tracing.smithy.syntax.*` to `com.dwolla.tracing.smithy.otel4s.syntax.*` and provide an implicit
+`TracerProvider[F]`; the instrumentation chain then yields an `F[Alg]` instead of an `Alg` (see below). Don't import
+both backends' syntax in one file: their methods share names, so Scala 2 can report the calls as ambiguous implicits.
+Each backend also honors the
 other backend's `redacted`, so a shape annotated for natchez never leaks through the otel4s wrappers (or the
 reverse). A shape can't carry both traits at once, because both would generate an instance with the same name.
 
@@ -165,7 +169,10 @@ outputs land on the span it creates.
     isn't traced and the span should be a `Server` or `Client` span. Where an HTTP middleware already opens the
     request's span, keep `Internal`: the X-Ray exporter turns every `SERVER` span into a separate segment. A failed
     call records status `ERROR`, an exception event, and `error.type`: the Smithy shape ID of an error the operation
-    declares, otherwise the error's class name. A canceled call records `error.type = canceled`.
+    declares, otherwise the error's type name (its class name, except that a Scala 3 enum case is named after its
+    enum). A cats-mtl raise that escapes the call records status `ERROR` and `error.type`, with no exception event.
+    The exception event records the exception's message as-is: `@traceable` redaction doesn't apply to it, and a
+    smithy4s error's message is its `message` member. A canceled call records `error.type = canceled`.
 *   `withTracedInputs()` records the input on the current span as `com.dwolla.code.function.arguments`: a map of input
     member name to value. An operation with no input records nothing.
 *   `withTracedOutputs()` records a successful call's output on the current span as

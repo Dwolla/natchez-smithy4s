@@ -5,8 +5,8 @@ import org.typelevel.otel4s.semconv.attributes.CodeAttributes
 import smithy4s.ShapeId
 
 /**
- * Span names and attribute keys, shared with otel4s-tagless so that one application records both libraries' calls
- * the same way. The keys are fixed (they never vary by service or operation), so one indexed key covers every
+ * Span names and attribute keys: the same ones otel4s-tagless uses, so that one application records both libraries'
+ * calls the same way. The keys are fixed (they never vary by service or operation), so one indexed key covers every
  * operation.
  */
 private[otel4s] object TracingAttributes {

@@ -11,8 +11,8 @@ import scala.jdk.CollectionConverters.*
 
 /**
  * The full stack on otel4s-oteljava, the backend Dwolla runs. Structured values reach OTel Java as `VALUE`-typed
- * attributes: an input or output structure is always a map, which OTel Java never narrows. The README's table
- * documents this.
+ * attributes: an input or output structure is always a map, which OTel Java never narrows. The README documents
+ * this.
  */
 class OtelJavaEndToEndTest extends CatsEffectSuite {
   test("span name and attribute types on the OTel Java SDK") {
