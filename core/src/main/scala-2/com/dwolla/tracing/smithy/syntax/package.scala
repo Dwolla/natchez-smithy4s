@@ -8,14 +8,13 @@ import natchez.{Span, Trace}
 package object syntax {
   implicit class TraceAlgebraOps[Alg[_[_, _, _, _, _]], F[_]](val alg: Alg[Kind1[F]#toKind5]) extends AnyVal {
     /**
-     * Wraps `alg` with simple instrumentation using default span options that
-     * configure the span as a server kind. The instrumentation facilitates tracing
+     * Wraps `alg` with simple instrumentation using default span options (`Span.Options.Defaults`, whose span kind is `Internal`). The instrumentation facilitates tracing
      * by wrapping each endpoint invocation in a new span named after the endpoint.
      *
      * @param S provides service-level operations for the `Alg` algebra.
      * @param T provides tracing capabilities for the effect type `F`.
      * @return Returns an instrumented version of the algebra `Alg` where endpoint
-     *         invocations are traced with the default server span options.
+     *         invocations are traced with the default span options.
      */
     def withSimpleInstrumentation()
                                  (implicit S: Service[Alg],
