@@ -15,9 +15,11 @@ object SchemaVisitorTraceableValue extends CachedSchemaCompiler.Impl[TraceableVa
 }
 
 class SchemaVisitorTraceableValue(override protected val cache: CompilationCache[TraceableValue]) extends SchemaVisitor.Cached[TraceableValue] { self =>
+  /** This module's own `redacted` first; otel4s-smithy4s's only if this one sets none (see [[CrossTraitRedaction]]). */
   private def maybeRedact[A](hints: Hints): Option[TraceableValue[A]] =
     hints.get(Traceable.tagInstance)
       .flatMap(_.redacted)
+      .orElse(CrossTraitRedaction.fromOtel4sTrait(hints))
       .map(r => TraceableValue[String].contramap((_: A) => r))
 
   private def aToStringViaTraceableValue[A : TraceableValue](a: A): String =

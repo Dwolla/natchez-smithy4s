@@ -137,6 +137,23 @@ lazy val `otel4s-smithy4s` = crossProject(JVMPlatform, JSPlatform)
   .enablePlugins(Smithy4sCodegenPlugin, BuildInfoPlugin)
   .dependsOn(`testing-support` % Test)
 
+lazy val `cross-redaction-tests` = crossProject(JVMPlatform, JSPlatform)
+  .crossType(CrossType.Pure)
+  .in(file("cross-redaction-tests"))
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.scalameta" %%% "munit" % "1.3.6" % Test,
+    ),
+  )
+  .settings(Smithy4sCodegenPlugin.defaultSettings(Test))
+  .settings(
+    Test / smithy4sInputDirs := List(
+      baseDirectory.value.getParentFile / "src" / "test" / "smithy",
+    ),
+  )
+  .enablePlugins(Smithy4sCodegenPlugin, NoPublishPlugin)
+  .dependsOn(`natchez-smithy4s`, `otel4s-smithy4s` % "compile->compile;test->test")
+
 lazy val root = tlCrossRootProject
-  .aggregate(`natchez-smithy4s`, `otel4s-smithy4s-metrics`, `otel4s-smithy4s`)
+  .aggregate(`natchez-smithy4s`, `otel4s-smithy4s-metrics`, `otel4s-smithy4s`, `cross-redaction-tests`)
   .enablePlugins(NoPublishPlugin)

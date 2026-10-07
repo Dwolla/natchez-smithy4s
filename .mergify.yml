@@ -26,6 +26,14 @@ pull_request_rules:
       add:
       - core
       remove: []
+- name: Label cross-redaction-tests PRs
+  conditions:
+  - files~=^cross-redaction-tests/
+  actions:
+    label:
+      add:
+      - cross-redaction-tests
+      remove: []
 - name: Label otel4s-metrics PRs
   conditions:
   - files~=^otel4s-metrics/
