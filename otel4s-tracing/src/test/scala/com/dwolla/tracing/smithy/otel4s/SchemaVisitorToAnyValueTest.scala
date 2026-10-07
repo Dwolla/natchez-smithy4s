@@ -135,15 +135,23 @@ class SchemaVisitorToAnyValueTest extends FunSuite {
     )
   }
 
-  test("a map of more than 5 entries records 5 of them, then how many more there were") {
-    val scores = (1 to 7).map(i => s"s$i" -> i).toMap
+  private def assertTruncatedScores(entryCount: Int, expectedMarker: String)(implicit loc: munit.Location): Unit = {
+    val scores = (1 to entryCount).map(i => s"s$i" -> i).toMap
     encode(Scores.underlyingSchema, scores) match {
       case map: AnyValue.MapValue =>
         val (marker, entries) = map.value.partition { case (key, _) => key == "(truncated)" }
-        assertEquals(marker, Map[String, AnyValue]("(truncated)" -> AnyValue.string("and 2 more")))
+        assertEquals(marker, Map[String, AnyValue]("(truncated)" -> AnyValue.string(expectedMarker)))
         assertEquals(entries.size, 5)
         assert(entries.forall { case (key, value) => scores.get(key).map(i => AnyValue.long(i.toLong)).contains(value) }, entries)
       case other => fail(s"expected a map, got $other")
     }
+  }
+
+  test("a map of more than 5 entries records 5 of them, then how many more there were") {
+    assertTruncatedScores(7, "and 2 more")
+  }
+
+  test("a map of 6 entries records 5 of them, then says there was 1 more") {
+    assertTruncatedScores(6, "and 1 more")
   }
 }
