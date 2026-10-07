@@ -61,7 +61,7 @@ class SchemaVisitorTraceableValue(override protected val cache: CompilationCache
       .getOrElse { (as: C[A]) =>
         val limit = 5
         val size = tag.iterator(as).size
-        if (size < limit) tag.iterator(as).map(aToStringViaTraceableValue[A]).mkString("[", ", ", "]")
+        if (size <= limit) tag.iterator(as).map(aToStringViaTraceableValue[A]).mkString("[", ", ", "]")
         else tag.iterator(as).take(limit).map(aToStringViaTraceableValue[A]).mkString("[", ", ", "") + s", and ${size - limit} more]"
       }
   }
