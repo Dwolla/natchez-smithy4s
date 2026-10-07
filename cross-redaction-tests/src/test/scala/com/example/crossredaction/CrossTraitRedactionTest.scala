@@ -22,6 +22,11 @@ class CrossTraitRedactionTest extends FunSuite {
     natchezRedactsOtel4sPlain = "SECRET-natchez-only",
     otel4sRedactsNatchezPlain = "SECRET-otel4s-only",
     natchezPlainOnly = "visible-value",
+    otel4sPlainOnly = "visible-otel4s-value",
+    natchezPlainOverOtel4sTarget = Otel4sRedactedSecret("SECRET-natchez-plain-over-otel4s-target"),
+    otel4sPlainOverNatchezTarget = NatchezRedactedSecret("SECRET-otel4s-plain-over-natchez-target"),
+    natchezPlainOverNatchezTarget = NatchezRedactedSecret("SECRET-natchez-plain-over-natchez-target"),
+    otel4sPlainOverOtel4sTarget = Otel4sRedactedSecret("SECRET-otel4s-plain-over-otel4s-target"),
   )
 
   private val natchezRendered: String =
@@ -63,6 +68,33 @@ class CrossTraitRedactionTest extends FunSuite {
 
   test("a natchez trait without `redacted` doesn't make the otel4s visitor redact") {
     assert(otel4sRecorded.contains("visible-value"), otel4sRecorded)
+  }
+
+  test("an otel4s trait without `redacted` doesn't make the natchez visitor redact") {
+    assert(natchezRendered.contains("visible-otel4s-value"), natchezRendered)
+  }
+
+  private def assertBothVisitorsRedact(secret: String, placeholder: String)(implicit loc: munit.Location): Unit = {
+    assert(!otel4sRecorded.exists(_.contains(secret)), s"$secret leaked through the otel4s visitor: $otel4sRecorded")
+    assert(otel4sRecorded.contains(placeholder), s"$placeholder missing from the otel4s visitor's: $otel4sRecorded")
+    assert(!natchezRendered.contains(secret), s"$secret leaked through the natchez visitor: $natchezRendered")
+    assert(natchezRendered.contains(placeholder), s"$placeholder missing from the natchez visitor's: $natchezRendered")
+  }
+
+  test("a plain natchez trait on a member doesn't cancel an otel4s redaction on its target") {
+    assertBothVisitorsRedact("SECRET-natchez-plain-over-otel4s-target", "<otel4s-target>")
+  }
+
+  test("a plain otel4s trait on a member doesn't cancel a natchez redaction on its target") {
+    assertBothVisitorsRedact("SECRET-otel4s-plain-over-natchez-target", "<natchez-target>")
+  }
+
+  test("a plain natchez trait on a member doesn't cancel a natchez redaction on its target") {
+    assertBothVisitorsRedact("SECRET-natchez-plain-over-natchez-target", "<natchez-target>")
+  }
+
+  test("a plain otel4s trait on a member doesn't cancel an otel4s redaction on its target") {
+    assertBothVisitorsRedact("SECRET-otel4s-plain-over-otel4s-target", "<otel4s-target>")
   }
 
   test("a dynamically-bound natchez trait is honored by the otel4s visitor") {

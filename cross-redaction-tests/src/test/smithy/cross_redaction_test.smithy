@@ -44,4 +44,26 @@ structure Mixed {
     @required
     @com.dwolla.tracing.smithy#traceable
     natchezPlainOnly: String
+
+    /// An otel4s trait with no `redacted` means "trace this value": the natchez visitor must not redact it either.
+    @required
+    @com.dwolla.tracing.smithy.otel4s#traceable
+    otel4sPlainOnly: String
+
+    /// A plain trait on a member never cancels a redaction on its target, whichever trait each one is.
+    @required
+    @com.dwolla.tracing.smithy#traceable
+    natchezPlainOverOtel4sTarget: Otel4sRedactedSecret
+
+    @required
+    @com.dwolla.tracing.smithy.otel4s#traceable
+    otel4sPlainOverNatchezTarget: NatchezRedactedSecret
+
+    @required
+    @com.dwolla.tracing.smithy#traceable
+    natchezPlainOverNatchezTarget: NatchezRedactedSecret
+
+    @required
+    @com.dwolla.tracing.smithy.otel4s#traceable
+    otel4sPlainOverOtel4sTarget: Otel4sRedactedSecret
 }

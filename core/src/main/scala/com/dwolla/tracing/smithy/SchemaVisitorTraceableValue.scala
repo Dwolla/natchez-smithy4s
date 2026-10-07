@@ -1,5 +1,6 @@
 package com.dwolla.tracing.smithy
 
+import cats.syntax.all.*
 import natchez.{TraceValue, TraceableValue}
 import smithy.api.TimestampFormat.DATE_TIME
 import smithy4s.capability.EncoderK
@@ -15,10 +16,14 @@ object SchemaVisitorTraceableValue extends CachedSchemaCompiler.Impl[TraceableVa
 }
 
 class SchemaVisitorTraceableValue(override protected val cache: CompilationCache[TraceableValue]) extends SchemaVisitor.Cached[TraceableValue] { self =>
-  /** This module's own `redacted` first; otel4s-smithy4s's only if this one sets none (see [[CrossTraitRedaction]]). */
+  /**
+   * This module's own `redacted` first (on the member, then on its target); otel4s-smithy4s's only if this one sets
+   * none (see [[CrossTraitRedaction]]). Each level is read separately, because smithy4s's merged view of the hints
+   * lets a member's plain `@traceable` replace its target's redacting one.
+   */
   private def maybeRedact[A](hints: Hints): Option[TraceableValue[A]] =
-    hints.get(Traceable.tagInstance)
-      .flatMap(_.redacted)
+    List(hints.memberHints, hints.targetHints)
+      .collectFirstSome(_.get(Traceable.tagInstance).flatMap(_.redacted))
       .orElse(CrossTraitRedaction.fromOtel4sTrait(hints))
       .map(r => TraceableValue[String].contramap((_: A) => r))
 

@@ -1,5 +1,6 @@
 package com.dwolla.tracing.smithy.otel4s
 
+import cats.syntax.all.*
 import smithy4s.{Document, Hints, ShapeId}
 
 /**
@@ -13,8 +14,15 @@ import smithy4s.{Document, Hints, ShapeId}
 private[otel4s] object CrossTraitRedaction {
   val NatchezTraceableId: ShapeId = ShapeId("com.dwolla.tracing.smithy", "traceable")
 
+  /**
+   * The member's `redacted` first, then its target's. The levels are read separately, never through the merged
+   * `Hints.toMap`, where a member's plain trait would replace its target's redacting one.
+   */
   def fromNatchezTrait(hints: Hints): Option[String] =
-    hints.toMap.get(NatchezTraceableId).map(asDocument).flatMap {
+    List(hints.memberHintsMap, hints.targetHintsMap).collectFirstSome(redactedAt)
+
+  private def redactedAt(hintsAtOneLevel: Map[ShapeId, Hints.Binding]): Option[String] =
+    hintsAtOneLevel.get(NatchezTraceableId).map(asDocument).flatMap {
       case Document.DObject(fields) => fields.get("redacted").collect { case Document.DString(redacted) => redacted }
       case _ => None
     }

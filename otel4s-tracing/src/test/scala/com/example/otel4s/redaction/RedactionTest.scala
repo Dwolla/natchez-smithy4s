@@ -35,6 +35,8 @@ class RedactionTest extends FunSuite {
     mapMember = Map("SECRET-map-member-key" -> "SECRET-map-member-value"),
     unionMember = PlainUnion.SecretCase("SECRET-union-member"),
     enumMember = PlainEnum.SECRET_MEMBER,
+    plainMemberOverRedactedTarget = TargetRedactedSecret("SECRET-plain-member-over-target"),
+    plainMemberOverRedactedStruct = RedactedStruct("SECRET-plain-member-over-struct"),
   )
 
   private def recordedStrings(value: Everything): List[String] =
@@ -68,6 +70,12 @@ class RedactionTest extends FunSuite {
     assert(!recorded.exists(_.contains("SECRET-recursive-nested")), recorded)
   }
   test("a document")(assertRedacted(recorded, "SECRET-document", "<document-redacted>"))
+  test("a plain @traceable on a member doesn't cancel its target shape's redaction") {
+    assertRedacted(recorded, "SECRET-plain-member-over-target", "<target-redacted>")
+  }
+  test("a plain @traceable on a member doesn't cancel its target structure's redaction") {
+    assertRedacted(recorded, "SECRET-plain-member-over-struct", "<struct-target-redacted>")
+  }
 
   test("a structure redacted on its target shape")(assertRedacted(recorded, "SECRET-struct-target", "<struct-target-redacted>"))
   test("a list redacted on its target shape")(assertRedacted(recorded, "SECRET-list-target", "<list-target-redacted>"))

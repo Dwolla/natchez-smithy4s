@@ -31,10 +31,14 @@ object SchemaVisitorToAnyValue extends CachedSchemaCompiler.Impl[ToAnyValue] {
 }
 
 class SchemaVisitorToAnyValue(override protected val cache: CompilationCache[ToAnyValue]) extends SchemaVisitor.Cached[ToAnyValue] { self =>
-  /** This module's own `redacted` first; natchez-smithy4s's only if this one sets none (see [[CrossTraitRedaction]]). */
+  /**
+   * This module's own `redacted` first (on the member, then on its target); natchez-smithy4s's only if this one sets
+   * none (see [[CrossTraitRedaction]]). Each level is read separately, because smithy4s's merged view of the hints
+   * lets a member's plain `@traceable` replace its target's redacting one.
+   */
   private def maybeRedact[A](hints: Hints): Option[ToAnyValue[A]] =
-    hints.get(Traceable.tagInstance)
-      .flatMap(_.redacted)
+    List(hints.memberHints, hints.targetHints)
+      .collectFirstSome(_.get(Traceable.tagInstance).flatMap(_.redacted))
       .orElse(CrossTraitRedaction.fromNatchezTrait(hints))
       .map(redacted => ToAnyValue.instance[A](_ => AnyValue.string(redacted)))
 

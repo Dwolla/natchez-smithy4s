@@ -67,6 +67,12 @@ structure Node {
 @traceable(redacted: "<document-redacted>")
 document SecretDocument
 
+@traceable(redacted: "<struct-target-redacted>")
+structure RedactedStruct {
+    @required
+    secret: String
+}
+
 structure Everything {
     @required
     targetRedacted: TargetRedactedSecret
@@ -95,4 +101,12 @@ structure Everything {
     node: Node
     @required
     document: SecretDocument
+    /// A plain `@traceable` on the member must not cancel the redaction on its target.
+    @required
+    @traceable
+    plainMemberOverRedactedTarget: TargetRedactedSecret
+    /// A plain `@traceable` on the member must not cancel the redaction on its target.
+    @required
+    @traceable
+    plainMemberOverRedactedStruct: RedactedStruct
 }
