@@ -51,3 +51,57 @@ object SimpleAlgebraInstrumentation {
                                                                    (implicit S: Service[Alg]): F[Alg[Kind1[F]#toKind5]] =
     SimpleAlgebraInstrumentation(alg, SpanKind.Internal)
 }
+
+object AlgebraInstrumentationWithInputs {
+  /**
+   * Wraps an algebra so that every endpoint call records its input on the *current* span as
+   * `com.dwolla.code.function.arguments`: a map of input member name to value, encoded by [[SchemaVisitorToAnyValue]],
+   * so every `@traceable(redacted = …)` (otel4s or natchez) is honored. Nothing is encoded unless the current span is
+   * recording, and a `Unit` input records nothing.
+   *
+   * Apply this *before* `SimpleAlgebraInstrumentation`, so that one wraps this and its new span is the current one.
+   * Without it, every call records onto whatever span is current, and on a shared span the last call's value wins.
+   */
+  def apply[Alg[_[_, _, _, _, _]], F[_] : Monad : TracerProvider](alg: Alg[Kind1[F]#toKind5])
+                                                                 (implicit S: Service[Alg]): F[Alg[Kind1[F]#toKind5]] =
+    LibraryTracer[F].map { tracer =>
+      val algebraAsPolyFunction = S.toPolyFunction(alg)
+
+      S.impl(new S.FunctorEndpointCompiler[F] {
+        override def apply[I, E, O, SI, SO](fa: S.Endpoint[I, E, O, SI, SO]): I => F[O] = {
+          val inputToAnyValue: com.dwolla.tracing.otel4s.ToAnyValue[I] = SchemaVisitorToAnyValue.fromSchema(fa.schema.input)
+
+          (i: I) =>
+            CurrentSpanRecording.record(tracer, TracingAttributes.ArgumentsKey, inputToAnyValue.toAnyValue(i)) *>
+              algebraAsPolyFunction.apply(fa.wrap(i))
+        }
+      })
+    }
+}
+
+object AlgebraInstrumentationWithOutputs {
+  /**
+   * Wraps an algebra so that every *successful* endpoint call records its output on the *current* span as
+   * `com.dwolla.code.function.return_value`, encoded by [[SchemaVisitorToAnyValue]]. Failures and cancellation record
+   * nothing here: the span that owns the call (for example the one `SimpleAlgebraInstrumentation` opens) records them.
+   * Nothing is encoded unless the current span is recording.
+   *
+   * Apply this *before* `SimpleAlgebraInstrumentation`, so that one wraps this and its new span is the current one.
+   */
+  def apply[Alg[_[_, _, _, _, _]], F[_] : Monad : TracerProvider](alg: Alg[Kind1[F]#toKind5])
+                                                                 (implicit S: Service[Alg]): F[Alg[Kind1[F]#toKind5]] =
+    LibraryTracer[F].map { tracer =>
+      val algebraAsPolyFunction = S.toPolyFunction(alg)
+
+      S.impl(new S.FunctorEndpointCompiler[F] {
+        override def apply[I, E, O, SI, SO](fa: S.Endpoint[I, E, O, SI, SO]): I => F[O] = {
+          val outputToAnyValue: com.dwolla.tracing.otel4s.ToAnyValue[O] = SchemaVisitorToAnyValue.fromSchema(fa.schema.output)
+
+          (i: I) =>
+            algebraAsPolyFunction
+              .apply(fa.wrap(i))
+              .flatTap(o => CurrentSpanRecording.record(tracer, TracingAttributes.ReturnValueKey, outputToAnyValue.toAnyValue(o)))
+        }
+      })
+    }
+}
