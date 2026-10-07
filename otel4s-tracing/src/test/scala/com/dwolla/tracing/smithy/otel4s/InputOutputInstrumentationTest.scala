@@ -119,4 +119,23 @@ class InputOutputInstrumentationTest
       assertEquals(ids, List(Some(AnyValue.string("second"))))
     }
   }
+
+  test("applied after withSimpleInstrumentation, inputs and outputs land on the enclosing span, not the call's span") {
+    resultAndSpans { implicit tracerProvider =>
+      tracerProvider.get("app").flatMap { appTracer =>
+        appTracer.span("parent").surround {
+          impl.withSimpleInstrumentation().withTracedInputs().withTracedOutputs().flatMap(_.processRequest("id-1", 2))
+        }
+      }
+    }.map { case (_, spans) =>
+      assertEquals(spans.map(_.name).sorted, List("TracingService.ProcessRequest", "parent"))
+      assertEquals(
+        spans.filter(_.name == "TracingService.ProcessRequest").map(_.attributes.elements),
+        List(Attributes(Attribute("code.function.name", "TracingService.ProcessRequest"))),
+      )
+      val parent = spans.filter(_.name == "parent").map(_.attributes.elements)
+      assertEquals(parent.map(_.get[AnyValue]("com.dwolla.code.function.arguments").isDefined), List(true))
+      assertEquals(parent.map(_.get[AnyValue]("com.dwolla.code.function.return_value").map(_.value)), List(Some(encodedResponse)))
+    }
+  }
 }
