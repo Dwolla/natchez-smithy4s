@@ -25,6 +25,16 @@ class RedactionTest extends FunSuite {
     document = SecretDocument(Document.obj("password" -> Document.fromString("SECRET-document"))),
     optionalSecret = Some(TargetRedactedSecret("SECRET-optional-target")),
     optionalMemberSecret = Some("SECRET-optional-member"),
+    structTarget = RedactedStruct("SECRET-struct-target"),
+    listTarget = List("SECRET-list-target"),
+    mapTarget = Map("SECRET-map-target-key" -> "SECRET-map-target-value"),
+    unionTarget = RedactedUnion.SecretCase("SECRET-union-target"),
+    enumTarget = RedactedEnum.SECRET_TARGET,
+    structMember = PlainStruct("SECRET-struct-member"),
+    listMember = List("SECRET-list-member"),
+    mapMember = Map("SECRET-map-member-key" -> "SECRET-map-member-value"),
+    unionMember = PlainUnion.SecretCase("SECRET-union-member"),
+    enumMember = PlainEnum.SECRET_MEMBER,
   )
 
   private def recordedStrings(value: Everything): List[String] =
@@ -58,6 +68,23 @@ class RedactionTest extends FunSuite {
     assert(!recorded.exists(_.contains("SECRET-recursive-nested")), recorded)
   }
   test("a document")(assertRedacted(recorded, "SECRET-document", "<document-redacted>"))
+
+  test("a structure redacted on its target shape")(assertRedacted(recorded, "SECRET-struct-target", "<struct-target-redacted>"))
+  test("a list redacted on its target shape")(assertRedacted(recorded, "SECRET-list-target", "<list-target-redacted>"))
+  test("a map redacted on its target shape") {
+    assertRedacted(recorded, "SECRET-map-target-value", "<map-target-redacted>")
+    assert(!recorded.exists(_.contains("SECRET-map-target-key")), recorded)
+  }
+  test("a union redacted on its target shape")(assertRedacted(recorded, "SECRET-union-target", "<union-target-redacted>"))
+  test("an enum redacted on its target shape")(assertRedacted(recorded, "SECRET-enum-target", "<enum-target-redacted>"))
+  test("a structure redacted on the member")(assertRedacted(recorded, "SECRET-struct-member", "<struct-member-redacted>"))
+  test("a list redacted on the member")(assertRedacted(recorded, "SECRET-list-member", "<list-member-of-list-redacted>"))
+  test("a map redacted on the member") {
+    assertRedacted(recorded, "SECRET-map-member-value", "<map-member-redacted>")
+    assert(!recorded.exists(_.contains("SECRET-map-member-key")), recorded)
+  }
+  test("a union redacted on the member")(assertRedacted(recorded, "SECRET-union-member", "<union-as-member-redacted>"))
+  test("an enum redacted on the member")(assertRedacted(recorded, "SECRET-enum-member", "<enum-member-redacted>"))
 
   test("a structure inside a union alternative") {
     val holderInUnion = recordedStrings(everything.copy(union = SecretUnion.HolderCase(SecretHolder("SECRET-holder-in-union"))))

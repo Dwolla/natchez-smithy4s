@@ -67,6 +67,55 @@ structure Node {
 @traceable(redacted: "<document-redacted>")
 document SecretDocument
 
+@traceable(redacted: "<struct-target-redacted>")
+structure RedactedStruct {
+    @required
+    secret: String
+}
+
+@traceable(redacted: "<list-target-redacted>")
+list RedactedList {
+    member: String
+}
+
+@traceable(redacted: "<map-target-redacted>")
+map RedactedMap {
+    key: String
+    value: String
+}
+
+@traceable(redacted: "<union-target-redacted>")
+union RedactedUnion {
+    secret: String
+}
+
+@traceable(redacted: "<enum-target-redacted>")
+enum RedactedEnum {
+    SECRET_TARGET = "SECRET-enum-target"
+}
+
+structure PlainStruct {
+    @required
+    secret: String
+}
+
+list PlainList {
+    member: String
+}
+
+map PlainMap {
+    key: String
+    value: String
+}
+
+union PlainUnion {
+    secret: String
+}
+
+enum PlainEnum {
+    SECRET_MEMBER = "SECRET-enum-member"
+}
+
 structure Everything {
     @required
     targetRedacted: TargetRedactedSecret
@@ -95,4 +144,29 @@ structure Everything {
     node: Node
     @required
     document: SecretDocument
+    @required
+    structTarget: RedactedStruct
+    @required
+    listTarget: RedactedList
+    @required
+    mapTarget: RedactedMap
+    @required
+    unionTarget: RedactedUnion
+    @required
+    enumTarget: RedactedEnum
+    @required
+    @traceable(redacted: "<struct-member-redacted>")
+    structMember: PlainStruct
+    @required
+    @traceable(redacted: "<list-member-of-list-redacted>")
+    listMember: PlainList
+    @required
+    @traceable(redacted: "<map-member-redacted>")
+    mapMember: PlainMap
+    @required
+    @traceable(redacted: "<union-as-member-redacted>")
+    unionMember: PlainUnion
+    @required
+    @traceable(redacted: "<enum-member-redacted>")
+    enumMember: PlainEnum
 }
