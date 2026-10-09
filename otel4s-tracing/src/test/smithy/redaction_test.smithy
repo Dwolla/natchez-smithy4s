@@ -1,8 +1,8 @@
 $version: "2.0"
 
-namespace com.example.redaction
+namespace com.example.otel4s.redaction
 
-use com.dwolla.tracing.smithy#traceable
+use com.dwolla.tracing.smithy.otel4s#traceable
 
 /// A secret marked for redaction on its target shape.
 @traceable(redacted: "<target-redacted>")
@@ -73,6 +73,49 @@ structure RedactedStruct {
     secret: String
 }
 
+@traceable(redacted: "<list-target-redacted>")
+list RedactedList {
+    member: String
+}
+
+@traceable(redacted: "<map-target-redacted>")
+map RedactedMap {
+    key: String
+    value: String
+}
+
+@traceable(redacted: "<union-target-redacted>")
+union RedactedUnion {
+    secret: String
+}
+
+@traceable(redacted: "<enum-target-redacted>")
+enum RedactedEnum {
+    SECRET_TARGET = "SECRET-enum-target"
+}
+
+structure PlainStruct {
+    @required
+    secret: String
+}
+
+list PlainList {
+    member: String
+}
+
+map PlainMap {
+    key: String
+    value: String
+}
+
+union PlainUnion {
+    secret: String
+}
+
+enum PlainEnum {
+    SECRET_MEMBER = "SECRET-enum-member"
+}
+
 structure Everything {
     @required
     targetRedacted: TargetRedactedSecret
@@ -101,6 +144,31 @@ structure Everything {
     node: Node
     @required
     document: SecretDocument
+    @required
+    structTarget: RedactedStruct
+    @required
+    listTarget: RedactedList
+    @required
+    mapTarget: RedactedMap
+    @required
+    unionTarget: RedactedUnion
+    @required
+    enumTarget: RedactedEnum
+    @required
+    @traceable(redacted: "<struct-member-redacted>")
+    structMember: PlainStruct
+    @required
+    @traceable(redacted: "<list-member-of-list-redacted>")
+    listMember: PlainList
+    @required
+    @traceable(redacted: "<map-member-redacted>")
+    mapMember: PlainMap
+    @required
+    @traceable(redacted: "<union-as-member-redacted>")
+    unionMember: PlainUnion
+    @required
+    @traceable(redacted: "<enum-member-redacted>")
+    enumMember: PlainEnum
     /// A plain `@traceable` on the member must not cancel the redaction on its target.
     @required
     @traceable

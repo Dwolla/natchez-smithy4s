@@ -26,6 +26,8 @@ class RedactionTest extends FunSuite {
     document = SecretDocument(Document.obj("password" -> Document.fromString("SECRET-document"))),
     optionalSecret = Some(TargetRedactedSecret("SECRET-optional-target")),
     optionalMemberSecret = Some("SECRET-optional-member"),
+    plainMemberOverRedactedTarget = TargetRedactedSecret("SECRET-plain-member-over-target"),
+    plainMemberOverRedactedStruct = RedactedStruct("SECRET-plain-member-over-struct"),
   )
 
   private def traced(value: Everything): String =
@@ -62,6 +64,12 @@ class RedactionTest extends FunSuite {
     assert(!rendered.contains("SECRET-recursive-nested"), rendered)
   }
   test("a document")(assertRedacted(rendered, "SECRET-document", "<document-redacted>"))
+  test("a plain @traceable on a member doesn't cancel its target shape's redaction") {
+    assertRedacted(rendered, "SECRET-plain-member-over-target", "<target-redacted>")
+  }
+  test("a plain @traceable on a member doesn't cancel its target structure's redaction") {
+    assertRedacted(rendered, "SECRET-plain-member-over-struct", "<struct-target-redacted>")
+  }
 
   test("a structure inside a union alternative") {
     val holderInUnion = traced(everything.copy(union = SecretUnion.HolderCase(SecretHolder("SECRET-holder-in-union"))))

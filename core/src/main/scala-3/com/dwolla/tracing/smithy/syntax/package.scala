@@ -9,7 +9,7 @@ import smithy4s.kinds.Kind1
 extension [Alg[_[_, _, _, _, _]], F[_] : Trace](alg: Alg[Kind1[F]#toKind5]) {
   /**
    * Wraps an existing algebra implementation with default instrumentation to trace its operations.
-   * This version uses default span options with a span kind of `Server`.
+   * This version uses default span options (`Span.Options.Defaults`, whose span kind is `Internal`).
    *
    * @param `Service[Alg]` An implicit `Service[Alg]` instance used for deriving the necessary
    *                       functionality to instrument the algebra.

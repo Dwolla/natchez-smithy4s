@@ -37,7 +37,7 @@ object SimpleAlgebraInstrumentation {
    * @param S   An implicit `Service` instance used for deriving the necessary functionality
    *            to instrument the algebra.
    * @return A new instance of the algebra, with each of its endpoints wrapped in tracing logic using
-   *         default span options with a span kind of `Server`.
+   *         default span options (`Span.Options.Defaults`, whose span kind is `Internal`).
    */
   def apply[Alg[_[_, _, _, _, _]], F[_] : Trace](alg: Alg[Kind1[F]#toKind5])
                                                 (implicit S: Service[Alg]): Alg[Kind1[F]#toKind5] =
