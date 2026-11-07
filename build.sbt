@@ -22,7 +22,7 @@ ThisBuild / mergifyStewardConfig ~= { _.map {
 }}
 ThisBuild / tlCiReleaseBranches += "main"
 
-val otel4sVersion = "1.1.0"
+val otel4sVersion = "1.2.0"
 
 lazy val `natchez-smithy4s` = crossProject(JVMPlatform, JSPlatform)
   .crossType(CrossType.Pure)
