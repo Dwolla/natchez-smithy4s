@@ -21,7 +21,7 @@ class InputOutputInstrumentationTest
   ))
   private val impl: TracingService[IO] = new FixedTracingService(IO.pure(response))
 
-  private def invoke(alg: TracingService[IO], operation: TracingServiceOperation[_, _, _, _, _]): IO[Either[Throwable, Any]] =
+  private def invoke(alg: TracingService[IO], operation: TracingServiceOperation[?, ?, ?, ?, ?]): IO[Either[Throwable, Any]] =
     TracingService.toPolyFunction(alg).apply(operation).attempt
 
   // helps Scala 2.13 unify `I` between the endpoint's input schema and the operation's input
@@ -32,7 +32,7 @@ class InputOutputInstrumentationTest
     if (value == AnyValue.empty) Nil else List(Attribute[AnyValue]("com.dwolla.code.function.arguments", value))
 
   test("inputs and outputs land on the span withSimpleInstrumentation opens, when it's applied last") {
-    forAllF { (operation: TracingServiceOperation[_, _, _, _, _]) =>
+    forAllF { (operation: TracingServiceOperation[?, ?, ?, ?, ?]) =>
       resultAndSpans { implicit tracerProvider =>
         impl.withTracedInputs().withTracedOutputs().withSimpleInstrumentation().flatMap(invoke(_, operation))
       }.map { case (_, spans) =>
