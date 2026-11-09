@@ -7,6 +7,9 @@ ThisBuild / githubWorkflowScalaVersions := Seq("2.13", "3")
 // clang 15, and every clang on the ubuntu-24.04 image is 16 or newer.
 ThisBuild / githubWorkflowOSes := Seq("ubuntu-24.04")
 ThisBuild / tlJdkRelease := Option(8)
+// Scala Native 0.5 warns that running it on a JDK older than 17 is deprecated. The published bytecode
+// still targets Java 8 through tlJdkRelease.
+ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.temurin("17"))
 ThisBuild / tlFatalWarnings := githubIsWorkflowBuild.value
 ThisBuild / startYear := Option(2024)
 ThisBuild / licenses := Seq(License.MIT)
