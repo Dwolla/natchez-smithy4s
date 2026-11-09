@@ -3,6 +3,9 @@ ThisBuild / homepage := Option(url("https://github.com/Dwolla/natchez-smithy4s")
 ThisBuild / tlBaseVersion := "0.1"
 ThisBuild / crossScalaVersions := Seq("2.13.18", "3.3.9")
 ThisBuild / githubWorkflowScalaVersions := Seq("2.13", "3")
+// Scala Native warns when it links with clang older than 16. The ubuntu-22.04 runner image tops out at
+// clang 15, and every clang on the ubuntu-24.04 image is 16 or newer.
+ThisBuild / githubWorkflowOSes := Seq("ubuntu-24.04")
 ThisBuild / tlJdkRelease := Option(8)
 ThisBuild / tlFatalWarnings := githubIsWorkflowBuild.value
 ThisBuild / startYear := Option(2024)
@@ -21,10 +24,42 @@ ThisBuild / mergifyStewardConfig ~= { _.map {
     .withMergeMinors(true)
 }}
 ThisBuild / tlCiReleaseBranches += "main"
+ThisBuild / githubWorkflowBuildMatrixExclusions ++= Seq(
+  // smithy4s publishes Scala Native artifacts for Scala 3 only, so every Native project here is
+  // Scala 3 only, and sbt's `++ 2.13` leaves them all at Scala 3. The cell would only repeat the
+  // Scala 3 Native build.
+  MatrixExclude(Map(
+    "scala" -> "2.13",
+    "project" -> "rootNative",
+  )),
+)
 
 val otel4sVersion = "1.1.0"
 
-lazy val `natchez-smithy4s` = crossProject(JVMPlatform, JSPlatform)
+// Scala Native adds its compiler plugin with -Xplugin, which Scala 3's scaladoc ignores but warns about.
+// Scala 2's scaladoc typechecks with the compiler plugins (e.g. kind-projector), so they stay there.
+lazy val dropCompilerPluginsFromScala3Doc: Setting[Task[Seq[String]]] =
+  Compile / doc / scalacOptions := {
+    val options = (Compile / doc / scalacOptions).value
+    if (scalaBinaryVersion.value == "3") options.filterNot(_.startsWith("-Xplugin")) else options
+  }
+
+// smithy4s publishes Scala Native artifacts for Scala 3 only
+lazy val scala3OnlyNativeSettings: Seq[Def.Setting[?]] = Seq(
+  crossScalaVersions := (ThisBuild / crossScalaVersions).value.filter(_.startsWith("3.")),
+  scalaVersion := crossScalaVersions.value.head,
+  dropCompilerPluginsFromScala3Doc,
+  // Scala Native links without its optimizer (debug mode) by default. Unoptimized, the property-based
+  // tests run close to munit-cats-effect's 30-second test timeout; optimized, they run 3-4x faster.
+  // Only linked test binaries are affected: the published artifacts are NIR, which isn't optimized.
+  nativeConfig ~= (_.withMode(scala.scalanative.build.Mode.releaseFast)),
+)
+
+// Scala Native artifacts are first published in 0.1.5, so MiMa must not look for earlier ones.
+lazy val publishedNativeSettings: Seq[Def.Setting[?]] =
+  scala3OnlyNativeSettings :+ (tlVersionIntroduced := Map("3" -> "0.1.5"))
+
+lazy val `natchez-smithy4s` = crossProject(JVMPlatform, JSPlatform, NativePlatform)
   .crossType(CrossType.Pure)
   .in(file("core"))
   .settings(
@@ -51,10 +86,11 @@ lazy val `natchez-smithy4s` = crossProject(JVMPlatform, JSPlatform)
       baseDirectory.value.getParentFile / "src" / "test" / "smithy",
     ),
   )
+  .nativeSettings(publishedNativeSettings *)
   .enablePlugins(Smithy4sCodegenPlugin)
   .dependsOn(`testing-support` % Test)
 
-lazy val `testing-support` = crossProject(JVMPlatform, JSPlatform)
+lazy val `testing-support` = crossProject(JVMPlatform, JSPlatform, NativePlatform)
   .crossType(CrossType.Pure)
   .in(file("testing-support"))
   .settings(
@@ -68,9 +104,10 @@ lazy val `testing-support` = crossProject(JVMPlatform, JSPlatform)
       )
     },
   )
+  .nativeSettings(scala3OnlyNativeSettings *)
   .enablePlugins(Smithy4sCodegenPlugin, NoPublishPlugin)
 
-lazy val `otel4s-smithy4s-metrics` = crossProject(JVMPlatform, JSPlatform)
+lazy val `otel4s-smithy4s-metrics` = crossProject(JVMPlatform, JSPlatform, NativePlatform)
   .crossType(CrossType.Pure)
   .in(file("otel4s-metrics"))
   .settings(
@@ -94,10 +131,11 @@ lazy val `otel4s-smithy4s-metrics` = crossProject(JVMPlatform, JSPlatform)
       )
     },
   )
+  .nativeSettings(publishedNativeSettings *)
   .enablePlugins(BuildInfoPlugin)
   .dependsOn(`testing-support` % Test)
 
-lazy val `otel4s-smithy4s` = crossProject(JVMPlatform, JSPlatform)
+lazy val `otel4s-smithy4s` = crossProject(JVMPlatform, JSPlatform, NativePlatform)
   .crossType(CrossType.Pure)
   .in(file("otel4s-tracing"))
   .settings(
@@ -128,6 +166,7 @@ lazy val `otel4s-smithy4s` = crossProject(JVMPlatform, JSPlatform)
   .jvmSettings(
     libraryDependencies += "org.typelevel" %% "otel4s-oteljava-trace-testkit" % otel4sVersion % Test,
   )
+  .nativeSettings(publishedNativeSettings *)
   .settings(Smithy4sCodegenPlugin.defaultSettings(Test))
   .settings(
     Test / smithy4sInputDirs := List(
@@ -137,7 +176,7 @@ lazy val `otel4s-smithy4s` = crossProject(JVMPlatform, JSPlatform)
   .enablePlugins(Smithy4sCodegenPlugin, BuildInfoPlugin)
   .dependsOn(`testing-support` % Test)
 
-lazy val `cross-redaction-tests` = crossProject(JVMPlatform, JSPlatform)
+lazy val `cross-redaction-tests` = crossProject(JVMPlatform, JSPlatform, NativePlatform)
   .crossType(CrossType.Pure)
   .in(file("cross-redaction-tests"))
   .settings(
@@ -151,6 +190,7 @@ lazy val `cross-redaction-tests` = crossProject(JVMPlatform, JSPlatform)
       baseDirectory.value.getParentFile / "src" / "test" / "smithy",
     ),
   )
+  .nativeSettings(scala3OnlyNativeSettings *)
   .enablePlugins(Smithy4sCodegenPlugin, NoPublishPlugin)
   .dependsOn(`natchez-smithy4s`, `otel4s-smithy4s` % "compile->compile;test->test")
 
