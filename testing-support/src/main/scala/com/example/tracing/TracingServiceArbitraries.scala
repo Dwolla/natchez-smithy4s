@@ -13,7 +13,7 @@ trait TracingServiceArbitraries {
     } yield TracingRequest(id, value, description)
   }
 
-  implicit val arbTracingServiceOperation: Arbitrary[TracingServiceOperation[_, _, _, _, _]] = Arbitrary {
+  implicit val arbTracingServiceOperation: Arbitrary[TracingServiceOperation[?, ?, ?, ?, ?]] = Arbitrary {
     Gen.oneOf(
       Gen.const(GetStatus()),
       arbitrary[TracingRequest].map(ProcessRequest(_)),

@@ -48,8 +48,8 @@ object AlgebraMetrics {
       S.impl(new S.FunctorEndpointCompiler[F] {
         override def apply[I, E, O, SI, SO](fa: S.Endpoint[I, E, O, SI, SO]): I => F[O] = {
           val rpcMethod = RpcSemanticConventions.rpcMethod(S.id, fa.name)
-          val attributesFor: Resource.ExitCase => List[Attribute[_]] = exitCase =>
-            List[Attribute[_]](RpcSemanticConventions.SmithyRpcSystem, rpcMethod) ++ RpcSemanticConventions.errorType(fa.error)(exitCase).toList
+          val attributesFor: Resource.ExitCase => List[Attribute[?]] = exitCase =>
+            List[Attribute[?]](RpcSemanticConventions.SmithyRpcSystem, rpcMethod) ++ RpcSemanticConventions.errorType(fa.error)(exitCase).toList
 
           (i: I) =>
             callDuration

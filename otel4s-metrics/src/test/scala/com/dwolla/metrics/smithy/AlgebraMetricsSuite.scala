@@ -26,18 +26,18 @@ abstract class AlgebraMetricsSuite
 
   protected implicit val arbLatency: Arbitrary[FiniteDuration] = Arbitrary(Gen.chooseNum(0L, 30000L).map(_.millis))
 
-  protected def expectedRpcMethod(operation: TracingServiceOperation[_, _, _, _, _]): String =
+  protected def expectedRpcMethod(operation: TracingServiceOperation[?, ?, ?, ?, ?]): String =
     operation match {
       case _: GetStatus => "com.example.tracing.TracingService/GetStatus"
       case _: ProcessRequest => "com.example.tracing.TracingService/ProcessRequest"
     }
 
-  protected def invoke(alg: TracingService[IO], operation: TracingServiceOperation[_, _, _, _, _]): IO[Any] =
+  protected def invoke(alg: TracingService[IO], operation: TracingServiceOperation[?, ?, ?, ?, ?]): IO[Any] =
     TracingService.toPolyFunction(alg).apply(operation).widen[Any]
 
-  protected def expectedAttributes(operation: TracingServiceOperation[_, _, _, _, _], errorType: Option[String]): Attributes =
+  protected def expectedAttributes(operation: TracingServiceOperation[?, ?, ?, ?, ?], errorType: Option[String]): Attributes =
     Attributes.fromSpecific(
-      List[Attribute[_]](
+      List[Attribute[?]](
         Attribute("rpc.system.name", "smithy"),
         Attribute("rpc.method", expectedRpcMethod(operation)),
       ) ++ errorType.map(Attribute("error.type", _)).toList
@@ -66,7 +66,7 @@ abstract class AlgebraMetricsSuite
    * encoding unchanged) and the recorded call-duration histogram points.
    */
   protected def escapedRaise[E](role: RpcRole,
-                                operation: TracingServiceOperation[_, _, _, _, _],
+                                operation: TracingServiceOperation[?, ?, ?, ?, ?],
                                 latency: FiniteDuration,
                                 error: E): IO[(Either[E, Any], List[PointData.Histogram])] =
     for {

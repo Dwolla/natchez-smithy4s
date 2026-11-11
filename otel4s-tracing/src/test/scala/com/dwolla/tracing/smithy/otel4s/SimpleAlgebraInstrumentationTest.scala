@@ -20,14 +20,14 @@ class SimpleAlgebraInstrumentationTest
   private val response = TracingResponse(id = "r", result = 4, status = Some("ok"))
   private val impl: TracingService[IO] = new FixedTracingService(IO.pure(response))
 
-  private def invoke(alg: TracingService[IO], operation: TracingServiceOperation[_, _, _, _, _]): IO[Either[Throwable, Any]] =
+  private def invoke(alg: TracingService[IO], operation: TracingServiceOperation[?, ?, ?, ?, ?]): IO[Either[Throwable, Any]] =
     TracingService.toPolyFunction(alg).apply(operation).attempt
 
   private def errorType(span: SpanData): Option[String] =
     span.attributes.elements.get[String]("error.type").map(_.value)
 
   test("each call runs in its own Internal span named <Service>.<Operation>, under this library's versioned scope") {
-    forAllF { (operation: TracingServiceOperation[_, _, _, _, _]) =>
+    forAllF { (operation: TracingServiceOperation[?, ?, ?, ?, ?]) =>
       for {
         untraced <- invoke(impl, operation)
         tracedAndSpans <- resultAndSpans { implicit tracerProvider =>

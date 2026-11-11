@@ -20,22 +20,22 @@ class AlgebraMetricsTest extends AlgebraMetricsSuite {
    * literally. `TracingError` is modeled only on `ProcessRequest`, so only there is it reported by
    * its Smithy shape ID; anywhere else it's just another exception, reported by class name.
    */
-  private implicit val arbFailure: Arbitrary[(Throwable, TracingServiceOperation[_, _, _, _, _] => String)] = Arbitrary {
+  private implicit val arbFailure: Arbitrary[(Throwable, TracingServiceOperation[?, ?, ?, ?, ?] => String)] = Arbitrary {
     Gen.oneOf(
-      Gen.alphaStr.map(msg => (new RuntimeException(msg), (_: TracingServiceOperation[_, _, _, _, _]) => "java.lang.RuntimeException")),
-      Gen.alphaStr.map(msg => (new IllegalStateException(msg), (_: TracingServiceOperation[_, _, _, _, _]) => "java.lang.IllegalStateException")),
+      Gen.alphaStr.map(msg => (new RuntimeException(msg), (_: TracingServiceOperation[?, ?, ?, ?, ?]) => "java.lang.RuntimeException")),
+      Gen.alphaStr.map(msg => (new IllegalStateException(msg), (_: TracingServiceOperation[?, ?, ?, ?, ?]) => "java.lang.IllegalStateException")),
       for {
         msg <- Gen.alphaStr
         code <- Gen.option(Gen.posNum[Int])
       } yield (TracingError(msg, code), {
         case _: ProcessRequest => "com.example.tracing#TracingError"
         case _: GetStatus => "com.example.tracing.TracingError"
-      }: TracingServiceOperation[_, _, _, _, _] => String),
+      }: TracingServiceOperation[?, ?, ?, ?, ?] => String),
     )
   }
 
   test("a successful call records its duration in seconds, with the standard buckets and no error.type") {
-    forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration) =>
+    forAllF { (role: RpcRole, operation: TracingServiceOperation[?, ?, ?, ?, ?], latency: FiniteDuration) =>
       recordedPoints(role, new ControlledTracingService(latency, successfulResponse.pure[IO]))(invoke(_, operation))
         .map { case (_, points) =>
           assertEquals(points.map(_.attributes), List(expectedAttributes(operation, None)))
@@ -47,14 +47,14 @@ class AlgebraMetricsTest extends AlgebraMetricsSuite {
   }
 
   test("a successful call's output is returned unchanged") {
-    forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration) =>
+    forAllF { (role: RpcRole, operation: TracingServiceOperation[?, ?, ?, ?, ?], latency: FiniteDuration) =>
       recordedPoints(role, new ControlledTracingService(latency, successfulResponse.pure[IO]))(invoke(_, operation))
         .map { case (output, _) => assertEquals(output, successfulResponse) }
     }
   }
 
   test("a failed call re-raises the same error and records error.type as the operation's modeled error shape ID, else the error's class name") {
-    forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration, failure: (Throwable, TracingServiceOperation[_, _, _, _, _] => String)) =>
+    forAllF { (role: RpcRole, operation: TracingServiceOperation[?, ?, ?, ?, ?], latency: FiniteDuration, failure: (Throwable, TracingServiceOperation[?, ?, ?, ?, ?] => String)) =>
       val (error, expectedErrorType) = failure
       recordedPoints(role, new ControlledTracingService(latency, error.raiseError[IO, TracingResponse]))(invoke(_, operation).attempt)
         .map { case (result, points) =>
@@ -77,7 +77,7 @@ class AlgebraMetricsTest extends AlgebraMetricsSuite {
     }
 
   test("an escaped cats-mtl raise records the raised error's type, never cats-mtl's wrapper, and still reaches its handler") {
-    forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration, error: DomainError) =>
+    forAllF { (role: RpcRole, operation: TracingServiceOperation[?, ?, ?, ?, ?], latency: FiniteDuration, error: DomainError) =>
       val expectedErrorType = expectedDomainErrorType(error)
       escapedRaise(role, operation, latency, error).map { case (recovered, points) =>
         assertEquals(recovered.left.toOption, error.some)
@@ -87,7 +87,7 @@ class AlgebraMetricsTest extends AlgebraMetricsSuite {
   }
 
   test("an escaped cats-mtl raise of an error the operation declares records its Smithy shape ID") {
-    forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration, message: String) =>
+    forAllF { (role: RpcRole, operation: TracingServiceOperation[?, ?, ?, ?, ?], latency: FiniteDuration, message: String) =>
       val expectedErrorType = operation match {
         case _: ProcessRequest => "com.example.tracing#TracingError"
         case _: GetStatus => "com.example.tracing.TracingError"
@@ -99,7 +99,7 @@ class AlgebraMetricsTest extends AlgebraMetricsSuite {
   }
 
   test("values that share one anonymous class but aren't a Scala 3 enum keep their class name") {
-    forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration) =>
+    forAllF { (role: RpcRole, operation: TracingServiceOperation[?, ?, ?, ?, ?], latency: FiniteDuration) =>
       // the anonymous class's index (`$$anon$1`, `$$anon$2`, …) is a compiler detail that differs between Scala versions
       val anonymousClassName = EnumLookalike.NotFound.getClass.getName
       for {
@@ -114,7 +114,7 @@ class AlgebraMetricsTest extends AlgebraMetricsSuite {
   }
 
   test("an exception thrown as an anonymous subclass records that subclass's class name") {
-    forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration, message: String) =>
+    forAllF { (role: RpcRole, operation: TracingServiceOperation[?, ?, ?, ?, ?], latency: FiniteDuration, message: String) =>
       val error = ErrorCreator.withoutStackTrace(message)
       val anonymousClassName = error.getClass.getName
       recordedPoints(role, new ControlledTracingService(latency, error.raiseError[IO, TracingResponse]))(invoke(_, operation).attempt)
@@ -126,7 +126,7 @@ class AlgebraMetricsTest extends AlgebraMetricsSuite {
   }
 
   test("an exception whose class is nested inside an anonymous class records its full class name") {
-    forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration) =>
+    forAllF { (role: RpcRole, operation: TracingServiceOperation[?, ?, ?, ?, ?], latency: FiniteDuration) =>
       val nestedClassName = AnonymousHolder.nestedError.getClass.getName
       recordedPoints(role, new ControlledTracingService(latency, AnonymousHolder.nestedError.raiseError[IO, TracingResponse]))(invoke(_, operation).attempt)
         .map { case (_, points) =>
@@ -137,7 +137,7 @@ class AlgebraMetricsTest extends AlgebraMetricsSuite {
   }
 
   test("an anonymous Product with an empty productPrefix records its class name, not a name ending in a dot") {
-    forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration) =>
+    forAllF { (role: RpcRole, operation: TracingServiceOperation[?, ?, ?, ?, ?], latency: FiniteDuration) =>
       // the anonymous class's index (`$$anon$1`, `$$anon$2`, …) is a compiler detail that differs between Scala versions
       val anonymousClassName = UnlabeledProduct.value.getClass.getName
       escapedRaise(role, operation, latency, UnlabeledProduct.value).map { case (_, points) =>
@@ -148,7 +148,7 @@ class AlgebraMetricsTest extends AlgebraMetricsSuite {
   }
 
   test("an escaped cats-mtl raise of null records error.type null and still reaches its handler") {
-    forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration) =>
+    forAllF { (role: RpcRole, operation: TracingServiceOperation[?, ?, ?, ?, ?], latency: FiniteDuration) =>
       escapedRaise(role, operation, latency, null: String).map { case (recovered, points) =>
         assertEquals(recovered, Left(null))
         assertEquals(points.map(_.attributes), List(expectedAttributes(operation, "null".some)))
@@ -157,7 +157,7 @@ class AlgebraMetricsTest extends AlgebraMetricsSuite {
   }
 
   test("an exception merely shaped like cats-mtl's wrapper is not unwrapped") {
-    forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration) =>
+    forAllF { (role: RpcRole, operation: TracingServiceOperation[?, ?, ?, ?, ?], latency: FiniteDuration) =>
       val lookalike = com.example.lookalike.Submarine(DomainError.NotFound, new AnyRef)
       recordedPoints(role, new ControlledTracingService(latency, lookalike.raiseError[IO, TracingResponse]))(invoke(_, operation).attempt)
         .map { case (_, points) =>
@@ -167,7 +167,7 @@ class AlgebraMetricsTest extends AlgebraMetricsSuite {
   }
 
   test("a call canceled mid-flight records its duration with error.type canceled") {
-    forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration) =>
+    forAllF { (role: RpcRole, operation: TracingServiceOperation[?, ?, ?, ?, ?], latency: FiniteDuration) =>
       val cancelAfter = latency + 1.milli
       recordedPoints(role, new ControlledTracingService(latency, IO.never))(invoke(_, operation).void.timeoutTo(cancelAfter, IO.unit))
         .map { case (_, points) =>
@@ -178,7 +178,7 @@ class AlgebraMetricsTest extends AlgebraMetricsSuite {
   }
 
   test("repeated calls aggregate into one metric, one point per rpc.method") {
-    forAllF { (role: RpcRole, operations: List[TracingServiceOperation[_, _, _, _, _]], latency: FiniteDuration) =>
+    forAllF { (role: RpcRole, operations: List[TracingServiceOperation[?, ?, ?, ?, ?]], latency: FiniteDuration) =>
       recordedPoints(role, new ControlledTracingService(latency, successfulResponse.pure[IO]))(alg => operations.traverse_(invoke(alg, _)))
         .map { case (_, points) =>
           val expectedCounts = operations.groupBy(expectedRpcMethod).map { case (method, calls) => method -> calls.size.toLong }
@@ -192,7 +192,7 @@ class AlgebraMetricsTest extends AlgebraMetricsSuite {
   }
 
   test("durations are recorded under this library's instrumentation scope, versioned with the library") {
-    forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _]) =>
+    forAllF { (role: RpcRole, operation: TracingServiceOperation[?, ?, ?, ?, ?]) =>
       TestControl.executeEmbed {
         MetricsTestkit.inMemory[IO]().use { testkit =>
           for {
@@ -210,7 +210,7 @@ class AlgebraMetricsTest extends AlgebraMetricsSuite {
   }
 
   test("the role selects the metric the durations are recorded to") {
-    forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _]) =>
+    forAllF { (role: RpcRole, operation: TracingServiceOperation[?, ?, ?, ?, ?]) =>
       val otherMetric = role match {
         case RpcRole.Server => "rpc.client.call.duration"
         case RpcRole.Client => "rpc.server.call.duration"
@@ -235,7 +235,7 @@ class AlgebraMetricsTest extends AlgebraMetricsSuite {
   }
 
   test("withMetrics syntax instruments the algebra the same way AlgebraMetrics does") {
-    forAllF { (role: RpcRole, operation: TracingServiceOperation[_, _, _, _, _], latency: FiniteDuration) =>
+    forAllF { (role: RpcRole, operation: TracingServiceOperation[?, ?, ?, ?, ?], latency: FiniteDuration) =>
       TestControl.executeEmbed {
         MetricsTestkit.inMemory[IO]().use { testkit =>
           implicit val meterProvider: MeterProvider[IO] = testkit.meterProvider

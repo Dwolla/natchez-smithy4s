@@ -60,10 +60,10 @@ class AlgebraInstrumentationTest
   }
 
   def instrumentationTest(options: TestOptions)
-                         (f: (TracingServiceOperation[_, _, _, _, _], Option[Span.Options], Option[Throwable]) => Trace[IO] => InstrumentationTestParameters)
+                         (f: (TracingServiceOperation[?, ?, ?, ?, ?], Option[Span.Options], Option[Throwable]) => Trace[IO] => InstrumentationTestParameters)
                          (implicit loc: Location): Unit = {
     test(options) {
-      forAllF { (operation: TracingServiceOperation[_, _, _, _, _],
+      forAllF { (operation: TracingServiceOperation[?, ?, ?, ?, ?],
                  maybeSpanOptions: Option[Span.Options],
                  maybeException: Option[Throwable],
                 ) =>
