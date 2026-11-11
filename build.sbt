@@ -1,7 +1,7 @@
 ThisBuild / organization := "com.dwolla"
 ThisBuild / homepage := Option(url("https://github.com/Dwolla/natchez-smithy4s"))
 ThisBuild / tlBaseVersion := "0.1"
-ThisBuild / crossScalaVersions := Seq("2.13.18", "3.3.9")
+ThisBuild / crossScalaVersions := Seq("2.13.18", "3.9.0")
 ThisBuild / githubWorkflowScalaVersions := Seq("2.13", "3")
 // Scala Native warns when it links with clang older than 16. The ubuntu-22.04 runner image tops out at
 // clang 15, and every clang on the ubuntu-24.04 image is 16 or newer.
