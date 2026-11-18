@@ -37,7 +37,7 @@ ThisBuild / githubWorkflowBuildMatrixExclusions ++= Seq(
   )),
 )
 
-val otel4sVersion = "1.1.0"
+val otel4sVersion = "1.2.0"
 
 // Scala Native adds its compiler plugin with -Xplugin, which Scala 3's scaladoc ignores but warns about.
 // Scala 2's scaladoc typechecks with the compiler plugins (e.g. kind-projector), so they stay there.
