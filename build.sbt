@@ -27,6 +27,12 @@ ThisBuild / mergifyStewardConfig ~= { _.map {
     .withMergeMinors(true)
 }}
 ThisBuild / tlCiReleaseBranches += "main"
+// Maven Central rate-limits publishing by egress IP, and Sonatype support can only investigate an
+// HTTP 429 when given the IP that was blocked. The lookup must never fail the publish.
+ThisBuild / githubWorkflowPublishPreamble += WorkflowStep.Run(
+  List("echo \"Runner egress IP: $(curl --silent --show-error --max-time 10 https://checkip.amazonaws.com || echo unknown)\""),
+  name = Some("Log runner egress IP"),
+)
 ThisBuild / githubWorkflowBuildMatrixExclusions ++= Seq(
   // smithy4s publishes Scala Native artifacts for Scala 3 only, so every Native project here is
   // Scala 3 only, and sbt's `++ 2.13` leaves them all at Scala 3. The cell would only repeat the
